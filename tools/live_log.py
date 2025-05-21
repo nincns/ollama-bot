@@ -6,7 +6,7 @@ import time
 from rich import print
 from rich.console import Console
 
-ACCESS_FILE = ".mariadb_access"
+ACCESS_FILE = "../private/.mariadb_access"
 INTERVAL = 3  # Sekunden
 
 def read_access():

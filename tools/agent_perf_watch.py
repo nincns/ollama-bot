@@ -7,7 +7,7 @@ from datetime import datetime
 from rich.console import Console
 from rich.table import Table
 
-ACCESS_FILE = ".mariadb_access"
+ACCESS_FILE = "../private/.mariadb_access"
 REFRESH_SEC = 2
 
 def read_access():

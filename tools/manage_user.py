@@ -5,7 +5,7 @@ import mysql.connector
 from configparser import ConfigParser
 from pathlib import Path
 
-ACCESS_FILE = ".mariadb_access"
+ACCESS_FILE = "../private/.mariadb_access"
 TABLE = "user_profile"
 
 COLOR = {
