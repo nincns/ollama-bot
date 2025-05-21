@@ -22,7 +22,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory={path.parent}
-ExecStart={path.parent}/venv/bin/python3 {path}
+ExecStart={path.parent}/tools/venv/bin/python3 {path}
 Restart=always
 User=root
 
