@@ -12,7 +12,7 @@ from telegram.ext import (
 )
 
 ACCESS_FILE = "private/.mariadb_access"
-BOT_TOKEN_FILE = "/private/.bot_token"
+BOT_TOKEN_FILE = "private/.bot_token"
 ADMIN_ID = 13709024
 CONFIRM_TIMEOUT_MINUTES = 15
 
