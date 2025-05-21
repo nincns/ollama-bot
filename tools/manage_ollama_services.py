@@ -38,8 +38,8 @@ WantedBy=multi-user.target
 
 def manage_service(name):
     while True:
-        print()
-        print(f"Dienst: {name}")
+        print(f"
+Dienst: {name}")
         print("1) Status anzeigen")
         print("2) Starten")
         print("3) Stoppen")
@@ -70,8 +70,8 @@ def main_menu():
         exit(1)
 
     while True:
-        print()
-        print("==========================")
+        print("
+==========================")
         print(" OLLAMA AGENT SERVICE TOOL")
         print("==========================")
         for i, key in enumerate(AGENT_FILES.keys(), start=1):
