@@ -4,103 +4,79 @@
 
 ### Telegram-Connector
 
-* Empfang von Nachrichten über Telegram-Bot
-* Nutzer-Authentifizierung (Neuanlage in `user_profile`)
+* Nachrichtenempfang via Telegram-Bot
+* Nutzer-Authentifizierung und -Neuanlage (`user_profile`)
 * Speicherung neuer Nachrichten in `conversations`
-* Gruppierung von Konversationen anhand Zeit/Trigger
+* Gruppierung von Konversationen nach Zeit/Trigger
 
 ### Ollama-Agent
 
-* Prüft Datenbank auf neue `conversations`-Einträge
-* Nutzt lokales Ollama-Modell zur Sprachverarbeitung
-* Verarbeitet Kontext mit Pre-/Postprompt (derzeit statisch)
-* Misst eigene Last (CPU, Speicher, Threads)
-* Speichert Ergebnis + Metriken in Datenbank
+* Verarbeitung neuer `conversations`-Einträge
+* Nutzung lokaler Ollama-Modelle
+* Kontextaufbau mit Pre-/Postprompts (statisch aus DB)
+* Speicherung von Ergebnissen & Metriken in Datenbank
+* Eigene Lastmessung (CPU, RAM, Threads)
 
 ### Datenbanksystem (MariaDB)
 
-* Struktur für Nutzer, Prompts, Agenten, Konversationen
-* Überwiegend genutzt:
-
-  * `user_profile`, `conversations`, `prompts`, `agent_log`
-* Schema versioniert mit `db_meta`
+* Genutzte Tabellen: `user_profile`, `conversations`, `prompts`, `agent_log`, `db_meta`
+* Teilweise genutzt / vorbereitet: `scripts`, `conversation_log`, `agent_status`, `script_usage`, `reasoning_log`
+* Nicht oder nur konzeptionell vorhanden: `prompt_analysis`, `conversation_tags`, `performance_class`
 
 ---
 
-## 🔄 Ungenutzte Tabellen & Spalten (aus `SQL_Tables.sql`)
+## 🔄 Analyse: Tabellen ohne aktuelle Funktion
 
-| Tabelle / Spalte              | Zweck laut Konzeption                  | Status                |
-| ----------------------------- | -------------------------------------- | --------------------- |
-| `scripts`                     | Verwaltung von Shell/Python-Skripten   | ungenutzt             |
-| `prompt_analysis`             | Qualitätsbewertung von Modellantworten | ungenutzt             |
-| `conversation_tags`           | Tagging zur thematischen Einordnung    | ungenutzt             |
-| `user_profile.language`       | Nutzer-Sprachprofil zur Modellwahl     | ungenutzt             |
-| `agent_log.performance_class` | Leistungsbewertung für Agent-Matching  | vorgesehen, aber leer |
-
-Diese Felder können für dynamische Modellwahl, Qualitätskontrolle und Kontextverarbeitung genutzt werden.
-
----
-
-## 🔧 Statisch definierte Variablen (Verbesserungspotenzial)
-
-| Variable / Parameter           | Aktuell                      | Potenzial                      |
-| ------------------------------ | ---------------------------- | ------------------------------ |
-| `OLLAMA_URL`                   | Fester Wert                  | Dynamische Zielwahl pro Agent  |
-| `AGENT_NAME`                   | Hostname                     | Gruppierung in Klassen/Rollen  |
-| Modellwahl in Request          | Statisch (z. B. `tinyllama`) | DB-basiert per Sprache/Kontext |
-| Prompt-Auswahl                 | Hart kodiert                 | Laden aus `prompts`-Tabelle    |
-| Zeit-Timeout Telegram (15 Min) | Konstant                     | Pro Benutzer konfigurierbar    |
+| Tabelle / Spalte              | Zweck laut Konzeption                | Status                  |
+| ----------------------------- | ------------------------------------ | ----------------------- |
+| `scripts`                     | Verwaltung von Shell/Python-Skripten | vorgesehen              |
+| `prompt_analysis`             | Bewertet Modellantworten qualitativ  | fehlt im Schema         |
+| `conversation_tags`           | thematische Klassifikation           | fehlt im Schema         |
+| `user_profile.language`       | Sprachwahl für Modellauswahl         | existiert, ungenutzt    |
+| `agent_log.performance_class` | Leistungsklasse für Matching         | nicht vorhanden         |
+| `reasoning_log`               | Modellgründe + Confidence Score      | vorhanden, ungenutzt    |
+| `agent_status`                | Live-Zustand und Metriken pro Agent  | vorhanden, aber inaktiv |
 
 ---
 
-## 🚀 Nächste Entwicklungsschritte
+## 🔧 Statisch definierte Parameter mit Potenzial zur Dynamisierung
 
-### 1. Watchdog-Prozess
+| Parameter                 | Aktuell                | Potenzial                        |
+| ------------------------- | ---------------------- | -------------------------------- |
+| `OLLAMA_URL`              | fix                    | dynamisch pro Agent auswählbar   |
+| `AGENT_NAME`              | Hostname               | Klassifizierbar für Matching     |
+| Modellwahl im Prompt      | statisch (`tinyllama`) | dynamisch aus `user_profile`     |
+| Prompt-Auswahl            | manuell                | über `prompts`-Tabelle steuerbar |
+| Timeout Telegram (15 Min) | fix                    | konfigurierbar pro Nutzer        |
 
-* Zentraler Dienst, der neue Konversationseinträge bewertet
-* Analyse von:
+---
 
-  * Sprache (aus `user_profile.language` oder NLP)
-  * Komplexität (Tokenanzahl, Prompttyp)
-  * Prompt-Metadaten (`prompts`, `prompt_analysis`)
-  * Agent-Auslastung (`agent_log`, Live-Daten via API oder DB)
-* Entscheidung für geeigneten Agent:
+## 🚀 Erweiterte Roadmap (Stand: Mai 2025)
 
-  * Performance Class (CPU/RAM)
-  * Spezialisierung (Modellgröße, Rolle)
-  * Verfügbarkeit (online, frei)
-* Automatischer Lock: `locked_by_agent`
+### Entwicklungsstand (nach Implementierung)
 
-### 2. Dynamische Modellwahl
+* [x] Telegram Connector (inkl. Nutzeranlage, Nachrichtenempfang)
+* [x] DB-Modell für Konversationen, Prompts, Nutzer
+* [x] Ollama Agent: Verarbeitung neuer Einträge mit Statuswechsel
+* [x] Kontextbildung mit Pre-/Postprompts
+* \[\~] Watchdog: Grundstruktur zur Verteilung vorhanden
 
-* Sprachabhängige Auswahl via `user_profile.language`
-* Modellgröße nach Komplexitätsabschätzung
-* Direktwahl durch Nutzer möglich (z. B. via Befehl)
-* Nutzung verschiedener lokaler oder Remote-Modelle
+### Offene Erweiterungen / geplante Features
 
-### 3. Kontextoptimierung
-
-* Pre-/Postprompts dynamisch aus `prompts` laden
-* Nutzung von Tags zur besseren Steuerung
-* Verknüpfung mit `prompt_analysis` zur Qualitätsbewertung
-
-### 4. Nutzung der Tabelle `scripts`
-
-* Steuerung interner Aufgaben als Script-Objekte
-* Metadaten (Typ, Parameter, Version)
-* Automatisierter Aufruf durch Agenten
-
-### 5. Tagging & Analyse
-
-* Automatisches Tagging durch NLP oder vordefinierte Liste
-* Speicherung in `conversation_tags`
-* Auswertung nach Themen, Trends, Nutzerverhalten
+* [ ] Priorisierung nach Keywords, Tokenanzahl, Triggern
+* [ ] Agent-Auswertung über `agent_status` + `performance_class`
+* [ ] Promptanalyse über `prompt_analysis` für Qualitätsmetriken
+* [ ] Nutzung von `scripts` & `script_usage` bei bestimmten Anfragen
+* [ ] Einsatz von `reasoning_log` für Modell-Erklärungen
+* [ ] Aufbau eines Tagging-Systems über `conversation_tags`
+* [ ] Konfigurierbare Timeout- und Modellwahl pro Nutzer
+* [ ] Admin-Weboberfläche zur Prompt-, Script- und Userpflege
 
 ---
 
 ## ✍️ Weiterführende Ideen
 
-* Sprachmodell-Wechsel basierend auf Kontext-Stil (z. B. sachlich, kreativ, technisch)
-* Long-Term Memory per kontextueller DB-Referenzierung
-* Nutzer-Dashboards für Prompt- und Scriptverwaltung
-* Versionierung von Antworten zur Qualitätsentwicklung
+* Modellwechsel anhand Kontextstimmung (technisch, kreativ etc.)
+* Long-Term Memory per SQL-Referenzen auf frühere Threads
+* Transparente Agent-Matching-Logik für Load-Balancing
+* Tokenbudgetierung für Kontextlänge + Qualität
