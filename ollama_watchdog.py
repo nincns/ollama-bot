@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Filename: ollama_watchdog.py
 import mysql.connector
 import logging
 from configparser import ConfigParser
