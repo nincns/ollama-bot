@@ -38,8 +38,7 @@ WantedBy=multi-user.target
 
 def manage_service(name):
     while True:
-        print(f"
-Dienst: {name}")
+        print(f"Dienst: {name}")
         print("1) Status anzeigen")
         print("2) Starten")
         print("3) Stoppen")
