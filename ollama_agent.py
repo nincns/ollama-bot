@@ -14,7 +14,7 @@ import threading
 import psutil
 
 # === Konfiguration ===
-ACCESS_FILE = ".mariadb_access"
+ACCESS_FILE = "private/.mariadb_access"
 OLLAMA_URL = "http://localhost:11434/api/chat"
 AGENT_NAME = socket.gethostname()
 CHECK_INTERVAL = 3  # Sekunden
