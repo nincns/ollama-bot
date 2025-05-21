@@ -211,7 +211,7 @@ def process_pending_requests(cfg):
 
     cursor.execute("""
         SELECT * FROM conversations
-        WHERE message_status = 'new'
+        WHERE message_status = 'queued'
         AND agent = %s
         AND (locked_by_agent IS NULL OR locked_by_agent = %s)
         ORDER BY timestamp ASC

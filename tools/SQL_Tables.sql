@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS conversations (
     system_prompt_id INT,
     pre_prompt_id INT,
     post_prompt_id INT,
-    message_status ENUM('new','progress','solved','error') DEFAULT 'new',
+    message_status ENUM('new', 'queued', 'progress', 'solved') DEFAULT 'new';
     agent VARCHAR(50),
     metric ENUM('low','normal','high','critical') DEFAULT 'normal',
     dialog_id VARCHAR(64),

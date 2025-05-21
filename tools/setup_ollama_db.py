@@ -251,59 +251,78 @@ def sync_schema(cfg):
     with open(SCHEMA_FILE, 'r') as f:
         sql = f.read()
 
-    schema = {}
     table_blocks = re.findall(
         r'CREATE TABLE IF NOT EXISTS\s+`?(\w+)`?\s*\((.*?)\);',
         sql,
         re.DOTALL | re.IGNORECASE
     )
 
-    # Parse Tabellen aus SQL
-    for table_name, body in table_blocks:
-        columns = []
-        parts = re.split(r',\s*(?![^()]*\))', body.strip())
-        for part in parts:
-            line = part.strip()
-            if line.upper().startswith(('PRIMARY ', 'FOREIGN ', 'UNIQUE ', 'KEY ', 'CONSTRAINT ')):
-                continue
-            match = re.match(r'`?(\w+)`?\s+(.*)', line)
-            if match:
-                col, definition = match.groups()
-                columns.append((col.strip(), definition.strip()))
-        schema[table_name] = (columns, f'CREATE TABLE IF NOT EXISTS `{table_name}` ({body});')
+    def extract_column_definition(line):
+        match = re.match(r'`?(\w+)`?\s+(.+)', line)
+        if not match:
+            return None, None, None
+        col = match.group(1)
+        full_def = match.group(2).strip()
+        type_match = re.match(r'([a-zA-Z]+(?:\([^)]+\))?)', full_def)
+        col_type = type_match.group(1).lower() if type_match else ""
+        return col, col_type, full_def
 
     conn = mysql.connector.connect(**cfg)
     cursor = conn.cursor()
 
-    # Vorab alle existierenden Tabellen abfragen
     cursor.execute("SHOW TABLES")
     existing_tables = set(row[0] for row in cursor.fetchall())
 
-    for table, (columns, create_stmt) in schema.items():
-        if table not in existing_tables:
-            print(colored(f"➕ Erstelle fehlende Tabelle: {table}", "YELLOW"))
+    for table_name, body in table_blocks:
+        parts = re.split(r',\s*(?![^()]*\))', body.strip())
+        columns = []
+        for part in parts:
+            line = part.strip()
+            if line.upper().startswith(('PRIMARY ', 'FOREIGN ', 'UNIQUE ', 'KEY ', 'CONSTRAINT ')):
+                continue
+            col, col_type, full_def = extract_column_definition(line)
+            if col:
+                columns.append((col, col_type, full_def))
+
+        if table_name not in existing_tables:
+            print(colored(f"➕ Erstelle fehlende Tabelle: {table_name}", "YELLOW"))
             try:
-                cursor.execute(create_stmt)
+                cursor.execute(f'CREATE TABLE IF NOT EXISTS `{table_name}` ({body});')
                 conn.commit()
             except Exception as e:
-                print(colored(f"❌ Fehler beim Erstellen von {table}: {e}", "RED"))
-            continue  # Spaltenprüfung überspringen – frisch erstellt
+                print(colored(f"❌ Fehler beim Erstellen von {table_name}: {e}", "RED"))
+            continue
 
-        for col, definition in columns:
+        for col, col_type, full_def in columns:
             cursor.execute("""
-                SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+                SELECT column_name, column_type
+                FROM INFORMATION_SCHEMA.COLUMNS
                 WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = %s
-            """, (cfg['database'], table, col))
-            exists = cursor.fetchone()[0]
-            if not exists:
-                print(colored(f"➕ Hinzufügen: {table}.{col}", "YELLOW"))
+            """, (cfg['database'], table_name, col))
+            result = cursor.fetchone()
+            if not result:
+                print(colored(f"➕ Hinzufügen: {table_name}.{col}", "YELLOW"))
                 try:
-                    cursor.execute(f'ALTER TABLE `{table}` ADD COLUMN `{col}` {definition}')
+                    cursor.execute(f'ALTER TABLE `{table_name}` ADD COLUMN `{col}` {full_def}')
                     conn.commit()
                 except Exception as e:
-                    print(colored(f"❌ Fehler bei {table}.{col}: {e}", "RED"))
+                    print(colored(f"❌ Fehler bei {table_name}.{col}: {e}", "RED"))
             else:
-                print(colored(f"✅ {table}.{col} existiert bereits", "GREEN"))
+                actual_type = result[1].lower()
+                if actual_type != col_type:
+                    print(colored(f"🛠 Unterschied bei {table_name}.{col}", "YELLOW"))
+                    print(f"    Erwartet: {col_type}")
+                    print(f"    Tatsächlich: {actual_type}")
+                    confirm = input(f"    → Jetzt ALTER COLUMN `{col}` ausführen? (y/n): ")
+                    if confirm.lower() == 'y':
+                        try:
+                            cursor.execute(f'ALTER TABLE `{table_name}` MODIFY COLUMN `{col}` {full_def}')
+                            conn.commit()
+                            print(colored("    ✅ Spalte aktualisiert.", "GREEN"))
+                        except Exception as e:
+                            print(colored(f"❌ Fehler bei MODIFY COLUMN: {e}", "RED"))
+                else:
+                    print(colored(f"✅ {table_name}.{col} passt", "GREEN"))
 
     cursor.close()
     conn.close()
