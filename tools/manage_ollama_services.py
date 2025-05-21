@@ -70,8 +70,7 @@ def main_menu():
         exit(1)
 
     while True:
-        print("
-==========================")
+        print("==========================")
         print(" OLLAMA AGENT SERVICE TOOL")
         print("==========================")
         for i, key in enumerate(AGENT_FILES.keys(), start=1):
