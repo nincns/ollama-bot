@@ -1,0 +1,6 @@
+[client]
+host = 127.0.0.1
+port = 3306
+user = OLLAMA_SQL
+password = start1234
+database = OLLAMA
