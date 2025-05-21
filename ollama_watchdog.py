@@ -7,7 +7,7 @@ from datetime import datetime
 import time
 
 # === Konfiguration ===
-ACCESS_FILE = ".mariadb_access"
+ACCESS_FILE = "private/.mariadb_access"
 LOGLEVEL = logging.INFO
 INTERVAL_SECONDS = 10  # Zeit zwischen den Zyklen
 
