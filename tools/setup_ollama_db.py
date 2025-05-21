@@ -10,7 +10,7 @@ from pathlib import Path
 import re
 
 VERSION = "1.5"
-ACCESS_FILE = ".mariadb_access"
+ACCESS_FILE = "../private/.mariadb_access"
 SCHEMA_FILE = "SQL_Tables.sql"
 COLOR = {
     "GREEN": "\033[0;32m",
