@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS db_meta (
 CREATE TABLE IF NOT EXISTS scripts (
     id INT(11) AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    type ENUM('sh','py') NOT NULL,
+    type ENUM('sh', 'py') NOT NULL,
     version VARCHAR(50),
     description TEXT,
     parameters TEXT,
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS scripts (
 CREATE TABLE IF NOT EXISTS prompts (
     id INT(11) AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
-    role ENUM('system','pre','post','analysis','other') NOT NULL,
+    role ENUM('system', 'pre', 'post', 'analysis', 'other') NOT NULL,
     version VARCHAR(50),
     description TEXT,
     tags TEXT,
@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS conversations (
     post_prompt_id INT,
     message_status ENUM('new', 'queued', 'progress', 'solved') DEFAULT 'new';
     agent VARCHAR(50),
-    metric ENUM('low','normal','high','critical') DEFAULT 'normal',
+    metric ENUM('low', 'normal', 'high', 'critical') DEFAULT 'normal',
     dialog_id VARCHAR(64),
     locked_by_agent VARCHAR(50),
     locked_at DATETIME,
@@ -87,7 +87,7 @@ CREATE INDEX idx_conversations_user_timestamp ON conversations(user_id, timestam
 CREATE TABLE IF NOT EXISTS conversation_log (
     id BIGINT(20) AUTO_INCREMENT PRIMARY KEY,
     conversation_id BIGINT(20),
-    role ENUM('user','assistant','system','meta') NOT NULL,
+    role ENUM('user', 'assistant', 'system', 'meta') NOT NULL,
     message TEXT,
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
@@ -118,7 +118,7 @@ CREATE TABLE IF NOT EXISTS script_usage (
     parameters_used TEXT,
     result TEXT,
     executed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    status ENUM('queued','running','done','error') DEFAULT 'queued',
+    status ENUM('queued', 'running', 'done', 'error') DEFAULT 'queued',
     FOREIGN KEY (user_id) REFERENCES user_profile(user_id),
     FOREIGN KEY (script_id) REFERENCES scripts(id)
 );
