@@ -295,11 +295,12 @@ def sync_schema(cfg):
 
         for col, col_type, full_def in columns:
             cursor.execute("""
-                SELECT column_name, column_type
+                SELECT column_name, column_type, column_key
                 FROM INFORMATION_SCHEMA.COLUMNS
                 WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = %s
             """, (cfg['database'], table_name, col))
             result = cursor.fetchone()
+
             if not result:
                 print(colored(f"➕ Hinzufügen: {table_name}.{col}", "YELLOW"))
                 try:
@@ -309,14 +310,19 @@ def sync_schema(cfg):
                     print(colored(f"❌ Fehler bei {table_name}.{col}: {e}", "RED"))
             else:
                 actual_type = result[1].lower()
+                column_key = result[2]
                 if actual_type != col_type:
                     print(colored(f"🛠 Unterschied bei {table_name}.{col}", "YELLOW"))
                     print(f"    Erwartet: {col_type}")
                     print(f"    Tatsächlich: {actual_type}")
                     confirm = input(f"    → Jetzt ALTER COLUMN `{col}` ausführen? (y/n): ")
                     if confirm.lower() == 'y':
+                        # Wenn PRIMARY KEY bereits existiert, entferne ihn aus dem Definitionstext
+                        safe_def = full_def
+                        if column_key == 'PRI' and 'primary key' in full_def.lower():
+                            safe_def = re.sub(r'\bprimary key\b', '', full_def, flags=re.IGNORECASE).strip()
                         try:
-                            cursor.execute(f'ALTER TABLE `{table_name}` MODIFY COLUMN `{col}` {full_def}')
+                            cursor.execute(f'ALTER TABLE `{table_name}` MODIFY COLUMN `{col}` {safe_def}')
                             conn.commit()
                             print(colored("    ✅ Spalte aktualisiert.", "GREEN"))
                         except Exception as e:
