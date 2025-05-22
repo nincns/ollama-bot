@@ -150,3 +150,22 @@ CREATE TABLE IF NOT EXISTS agent_status (
     gpu_mem_used_mb INT,
     gpu_mem_total_mb INT 
 );
+
+CREATE TABLE IF NOT EXISTS model_catalog (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    model_name VARCHAR(100) NOT NULL,
+    display_name VARCHAR(100),
+    provider ENUM('ollama', 'openai', 'local', 'huggingface') DEFAULT 'ollama',
+    version VARCHAR(50),
+    model_size ENUM('small', 'medium', 'large', 'xl'),
+    language_support TEXT,
+    supports_chat BOOLEAN DEFAULT TRUE,
+    supports_reasoning BOOLEAN DEFAULT FALSE,
+    supports_knowledge BOOLEAN DEFAULT FALSE,
+    tags TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE (model_name, version)
+);
