@@ -1,6 +1,6 @@
 -- Vollständiges Datenbankschema für das Ollama-Bot-System
 -- Multi-User-kompatibel mit referenzieller Integrität
--- Aktualisiert: 2025-05-07
+-- Aktualisiert: 2025-05-22
 -- Filename: SQL_Tables.sql
 
 CREATE TABLE IF NOT EXISTS db_meta (
@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS db_meta (
 );
 
 CREATE TABLE IF NOT EXISTS scripts (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    id INT(11) AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     type ENUM('sh','py') NOT NULL,
     version VARCHAR(50),
@@ -17,14 +17,14 @@ CREATE TABLE IF NOT EXISTS scripts (
     parameters TEXT,
     tags TEXT,
     content TEXT,
-    is_active BOOLEAN DEFAULT TRUE,
+    is_active TINYINT(1) DEFAULT TRUE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE (name, type)
 );
 
 CREATE TABLE IF NOT EXISTS prompts (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    id INT(11) AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     role ENUM('system','pre','post','analysis','other') NOT NULL,
     version VARCHAR(50),
@@ -33,13 +33,13 @@ CREATE TABLE IF NOT EXISTS prompts (
     content TEXT NOT NULL,
     language VARCHAR(10) DEFAULT 'de',
     model VARCHAR(100),
-    is_active BOOLEAN DEFAULT TRUE,
+    is_active TINYINT(1) DEFAULT TRUE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS user_profile (
-    user_id BIGINT PRIMARY KEY,
+    user_id BIGINT(20) PRIMARY KEY,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
     messenger_id VARCHAR(255),
@@ -52,8 +52,8 @@ CREATE TABLE IF NOT EXISTS user_profile (
 );
 
 CREATE TABLE IF NOT EXISTS conversations (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    user_id BIGINT,
+    id BIGINT(20) AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT(20),
     user_message TEXT,
     cleaned_prompt TEXT,
     model_response TEXT,
@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS conversations (
     processing_started_at DATETIME,
     processing_finished_at DATETIME,
     failure_reason TEXT,
-    response_sent BOOLEAN DEFAULT 0,
+    response_sent TINYINT(1) DEFAULT 0,
     FOREIGN KEY (user_id) REFERENCES user_profile(user_id) ON DELETE SET NULL,
     FOREIGN KEY (associated_script_id) REFERENCES scripts(id) ON DELETE SET NULL,
     FOREIGN KEY (system_prompt_id) REFERENCES prompts(id) ON DELETE SET NULL,
@@ -85,8 +85,8 @@ CREATE INDEX idx_conversations_dialog_id ON conversations(dialog_id);
 CREATE INDEX idx_conversations_user_timestamp ON conversations(user_id, timestamp DESC);
 
 CREATE TABLE IF NOT EXISTS conversation_log (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    conversation_id BIGINT,
+    id BIGINT(20) AUTO_INCREMENT PRIMARY KEY,
+    conversation_id BIGINT(20),
     role ENUM('user','assistant','system','meta') NOT NULL,
     message TEXT,
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -94,16 +94,16 @@ CREATE TABLE IF NOT EXISTS conversation_log (
 );
 
 CREATE TABLE IF NOT EXISTS reasoning_log (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    conversation_id BIGINT,
+    id BIGINT(20) AUTO_INCREMENT PRIMARY KEY,
+    conversation_id BIGINT(20),
     reasoning TEXT,
     confidence_score FLOAT,
     FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS conversation_history (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    user_id BIGINT,
+    id BIGINT(20) AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT(20),
     prompt TEXT,
     response TEXT,
     model_used VARCHAR(50),
@@ -112,8 +112,8 @@ CREATE TABLE IF NOT EXISTS conversation_history (
 );
 
 CREATE TABLE IF NOT EXISTS script_usage (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    user_id BIGINT,
+    id BIGINT(20) AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT(20),
     script_id INT,
     parameters_used TEXT,
     result TEXT,
@@ -124,10 +124,10 @@ CREATE TABLE IF NOT EXISTS script_usage (
 );
 
 CREATE TABLE IF NOT EXISTS agent_log (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id BIGINT(20) AUTO_INCREMENT PRIMARY KEY,
     agent_name VARCHAR(100) NOT NULL,
     log_type ENUM('startup', 'status', 'assignment', 'warning', 'info', 'error') NOT NULL,
-    conversation_id BIGINT NULL,
+    conversation_id BIGINT(20) NULL,
     message TEXT,
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE SET NULL
@@ -142,7 +142,7 @@ CREATE TABLE IF NOT EXISTS agent_status (
     model_list TEXT,
     model_active TEXT,
     runtime_status TEXT,
-    is_available BOOLEAN DEFAULT TRUE,
+    is_available TINYINT(1) DEFAULT TRUE,
     notes TEXT,
     cpu_load_percent FLOAT,
     mem_used_percent FLOAT,
@@ -152,18 +152,18 @@ CREATE TABLE IF NOT EXISTS agent_status (
 );
 
 CREATE TABLE IF NOT EXISTS model_catalog (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    id INT(11) AUTO_INCREMENT PRIMARY KEY,
     model_name VARCHAR(100) NOT NULL,
     display_name VARCHAR(100),
     provider ENUM('ollama', 'openai', 'local', 'huggingface') DEFAULT 'ollama',
     version VARCHAR(50),
     model_size ENUM('small', 'medium', 'large', 'xl'),
     language_support TEXT,
-    supports_chat BOOLEAN DEFAULT TRUE,
-    supports_reasoning BOOLEAN DEFAULT FALSE,
-    supports_knowledge BOOLEAN DEFAULT FALSE,
+    supports_chat TINYINT(1) DEFAULT TRUE,
+    supports_reasoning TINYINT(1) DEFAULT FALSE,
+    supports_knowledge TINYINT(1) DEFAULT FALSE,
     tags TEXT,
-    is_active BOOLEAN DEFAULT TRUE,
+    is_active TINYINT(1) DEFAULT TRUE,
     notes TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
