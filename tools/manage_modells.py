@@ -4,7 +4,7 @@ import mysql.connector
 from tabulate import tabulate
 
 ACCESS_FILE = "../private/.mariadb_access"
-TABLE = "modell_catalog"
+TABLE = "model_catalog"
 
 def connect_db():
     with open(ACCESS_FILE, 'r') as f:
