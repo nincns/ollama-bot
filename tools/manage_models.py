@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 # Filename: manage_models.py
 import mysql.connector
