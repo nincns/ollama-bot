@@ -37,20 +37,29 @@ def get_connection(cfg):
     return mysql.connector.connect(**cfg)
 
 def create_prompt(cfg):
+    import tempfile
+    import os
+    import subprocess
+
     print("\n🆕 Neuen Prompt erstellen:")
     name = input("Name: ").strip()
     role = input("Rolle (system|pre|post|analysis|other): ").strip()
     version = input("Version (optional): ").strip()
     description = input("Beschreibung: ").strip()
     tags = input("Tags (komma-separiert, optional): ").strip()
-    print("Inhalt (mehrzeilig, Ende mit leerer Zeile):")
-    content_lines = []
-    while True:
-        line = input()
-        if line == "":
-            break
-        content_lines.append(line)
-    content = "\n".join(content_lines)
+
+    print("Inhalt: Der Standard-Editor wird geöffnet. Speichern und schließen zum Übernehmen.")
+    with tempfile.NamedTemporaryFile(suffix=".tmp", delete=False, mode="w+", encoding="utf-8") as tf:
+        editor = os.environ.get("EDITOR", "nano")
+        tf_path = tf.name
+        tf.write("# Hier Prompt-Inhalt eingeben. Zeilen mit # werden ignoriert.\n")
+        tf.flush()
+        subprocess.call([editor, tf_path])
+        tf.seek(0)
+        content_lines = [line for line in tf if not line.strip().startswith("#")]
+        content = "".join(content_lines)
+        os.unlink(tf_path)
+
     language = input("Sprache (z. B. de/en) [de]: ").strip() or "de"
     model = input("Bevorzugtes Modell (optional): ").strip()
 
