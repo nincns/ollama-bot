@@ -7,3 +7,4 @@ openai
 mysql-connector-python
 pymysql
 python-telegram-bot[job-queue]==20.7
+tabulate
