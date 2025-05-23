@@ -75,19 +75,30 @@ def assign_request(cursor, request_id, agent_name, pre_prompt_id):
 
 def is_agent_suitable(agent, model):
     try:
-        ram_mem_total_mb = agent.get("ram_mem_total_mb", 0)  # ⇦ korrektes Attribut
+        ram_mem_total_mb = agent.get("ram_mem_total_mb", 0)
         used_ram_percent = agent.get("mem_used_percent", 100)
         available_ram_mb = (1 - used_ram_percent / 100) * ram_mem_total_mb
         available_vram_mb = agent.get("gpu_mem_total_mb", 0) - agent.get("gpu_mem_used_mb", 0)
 
+        print(f"\n🔍 Prüfe Agent: {agent['agent_name']}")
+        print(f"   → RAM gesamt: {ram_mem_total_mb} MB | RAM verfügbar: {available_ram_mb:.0f} MB")
+        print(f"   → GPU gesamt: {agent.get('gpu_mem_total_mb', 0)} MB | GPU verfügbar: {available_vram_mb:.0f} MB")
+        print(f"   → Modellanforderung: min_ram={model.get('min_ram_mb')} MB | min_vram={model.get('min_vram_mb')} MB | GPU erforderlich: {bool(model.get('requires_gpu'))}")
+
         if model.get("requires_gpu") and agent.get("gpu_mem_total_mb", 0) <= 0:
+            print("   ⛔ Kein GPU verfügbar – nicht geeignet.")
             return False
         if model.get("min_ram_mb") and available_ram_mb < model["min_ram_mb"]:
+            print("   ⛔ RAM zu gering – nicht geeignet.")
             return False
         if model.get("min_vram_mb") and available_vram_mb < model["min_vram_mb"]:
+            print("   ⛔ VRAM zu gering – nicht geeignet.")
             return False
+
+        print("   ✅ Agent ist geeignet.")
         return True
-    except:
+    except Exception as e:
+        print(f"   ⚠️ Fehler bei der Agentprüfung: {e}")
         return False
 
 # === Haupt-Dispatcher ===
