@@ -57,6 +57,8 @@ def get_gpu_info():
 
 # === Agent-Infos eintragen und agent_status aktualisieren ===
 def log_agent_info(cursor):
+    import psutil  # nur falls nicht global importiert
+
     def run_cmd(command):
         try:
             return subprocess.check_output(command, text=True).strip().splitlines()[1:]
@@ -82,6 +84,7 @@ def log_agent_info(cursor):
     cpu = get_cpu_load()
     mem = get_memory_usage()
     gpu_util, gpu_used, gpu_total = get_gpu_info()
+    total_ram_mb = psutil.virtual_memory().total // 1024 // 1024  # ⇦ NEU
 
     # agent_log aktualisieren wenn sich Status ändert
     if status:
@@ -97,14 +100,14 @@ def log_agent_info(cursor):
                 VALUES (%s, %s, %s, %s, %s)
             """, (None, AGENT_NAME, "status", model_info_str, datetime.now()))
 
-    # Aktualisiere agent_status
+    # Aktualisiere agent_status inkl. total_ram_mb
     cursor.execute("""
         REPLACE INTO agent_status (
             agent_name, hostname, last_seen, performance_class,
             recommended_models, model_list, model_active, runtime_status, is_available, notes,
             cpu_load_percent, mem_used_percent, gpu_util_percent,
-            gpu_mem_used_mb, gpu_mem_total_mb
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            gpu_mem_used_mb, gpu_mem_total_mb, total_ram_mb
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """, (
         AGENT_NAME,
         socket.gethostname(),
@@ -120,7 +123,8 @@ def log_agent_info(cursor):
         mem,
         gpu_util,
         gpu_used,
-        gpu_total
+        gpu_total,
+        total_ram_mb
     ))
 
     # Aktualisiere agent_status
