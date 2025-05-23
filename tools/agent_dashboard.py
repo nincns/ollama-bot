@@ -28,21 +28,25 @@ def show_agent_status():
     conn = connect_db()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT id, agent, updated_at, performance_rating FROM agent_log")
-    rows = cursor.fetchall()
+    cursor.execute("""
+        SELECT locked_by_agent AS agent, performance_rating,
+               MAX(updated_at) AS last_seen
+        FROM conversations
+        WHERE locked_by_agent IS NOT NULL
+        GROUP BY locked_by_agent, performance_rating
+    """)
 
+    rows = cursor.fetchall()
     table = Table(title="Agentenstatus")
-    table.add_column("ID")
     table.add_column("Agent")
     table.add_column("Letzte Aktivität")
     table.add_column("Leistung")
 
     for row in rows:
-        id_, agent, updated_at, perf = row
+        agent, last_seen, perf = row[0], row[2], row[1]
         table.add_row(
-            str(id_),
             agent,
-            updated_at.strftime('%Y-%m-%d %H:%M:%S') if updated_at else '-',
+            last_seen.strftime('%Y-%m-%d %H:%M:%S') if last_seen else '-',
             f"{perf:.2f}" if perf is not None else "-"
         )
 
