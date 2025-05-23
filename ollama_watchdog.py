@@ -75,9 +75,9 @@ def assign_request(cursor, request_id, agent_name, pre_prompt_id):
 
 def is_agent_suitable(agent, model):
     try:
-        total_ram_mb = agent.get("total_ram_mb", 0)
+        ram_mem_total_mb = agent.get("ram_mem_total_mb", 0)  # ⇦ korrektes Attribut
         used_ram_percent = agent.get("mem_used_percent", 100)
-        available_ram_mb = (1 - used_ram_percent / 100) * total_ram_mb
+        available_ram_mb = (1 - used_ram_percent / 100) * ram_mem_total_mb
         available_vram_mb = agent.get("gpu_mem_total_mb", 0) - agent.get("gpu_mem_used_mb", 0)
 
         if model.get("requires_gpu") and agent.get("gpu_mem_total_mb", 0) <= 0:

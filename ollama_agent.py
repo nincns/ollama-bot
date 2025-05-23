@@ -65,13 +65,14 @@ def log_agent_info(cursor):
         except Exception as e:
             return [f"Fehler: {e}"]
 
+    # Modellinformationen via ollama
     models = run_cmd(["ollama", "list"])
     status = run_cmd(["ollama", "ps"])
 
     model_info_str = "\n".join(models)
     runtime_status_str = "\n".join(status)
 
-    # Aktives Modell extrahieren
+    # Aktives Modell extrahieren (erste Zeile mit Modellnamen)
     active_model = "-"
     for line in status:
         if line.strip():
@@ -80,13 +81,13 @@ def log_agent_info(cursor):
                 active_model = parts[0]
                 break
 
-    # Performance-Daten sammeln
-    cpu = get_cpu_load()
-    mem = get_memory_usage()
+    # Performance-Werte sammeln
+    cpu = get_cpu_load()                         # CPU-Auslastung in %
+    mem = get_memory_usage()                     # RAM-Auslastung in %
     gpu_util, gpu_used, gpu_total = get_gpu_info()
-    total_ram_mb = psutil.virtual_memory().total // 1024 // 1024  # ⇦ NEU
+    ram_total_mb = psutil.virtual_memory().total // 1024 // 1024  # ⇨ RAM gesamt in MB
 
-    # agent_log aktualisieren wenn sich Status ändert
+    # agent_log bei Modelländerung aktualisieren
     if status:
         cursor.execute("""
             SELECT model_info FROM agent_log
@@ -100,13 +101,13 @@ def log_agent_info(cursor):
                 VALUES (%s, %s, %s, %s, %s)
             """, (None, AGENT_NAME, "status", model_info_str, datetime.now()))
 
-    # Aktualisiere agent_status inkl. total_ram_mb
+    # agent_status aktualisieren – jetzt mit ram_mem_total_mb
     cursor.execute("""
         REPLACE INTO agent_status (
             agent_name, hostname, last_seen, performance_class,
             recommended_models, model_list, model_active, runtime_status, is_available, notes,
             cpu_load_percent, mem_used_percent, gpu_util_percent,
-            gpu_mem_used_mb, gpu_mem_total_mb, total_ram_mb
+            gpu_mem_used_mb, gpu_mem_total_mb, ram_mem_total_mb
         ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """, (
         AGENT_NAME,
@@ -124,7 +125,7 @@ def log_agent_info(cursor):
         gpu_util,
         gpu_used,
         gpu_total,
-        total_ram_mb
+        ram_total_mb
     ))
 
     # Aktualisiere agent_status
