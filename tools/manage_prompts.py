@@ -109,24 +109,55 @@ def view_prompt(cfg):
     conn.close()
 
 def edit_field(cfg):
+    import tempfile
+    import os
+    import subprocess
+
     pid = input("🛠 Prompt-ID: ")
     if not pid.isdigit():
         return
+
     fields = ["name", "role", "version", "description", "tags", "content", "is_active", "language", "model"]
     print("Feld auswählen:")
     for i, f in enumerate(fields, 1):
         print(f"{i}) {f}")
     print(f"{len(fields) + 1}) Abbrechen")
+    
     try:
         choice = int(input("Auswahl: "))
         if choice < 1 or choice > len(fields):
             return
         field = fields[choice - 1]
-        value = input(f"📝 Neuer Wert für {field}: ")
     except (ValueError, IndexError):
         return
+
     conn = get_connection(cfg)
     cursor = conn.cursor()
+
+    if field == "content":
+        # Lade bisherigen Inhalt
+        cursor.execute(f"SELECT content FROM {TABLE} WHERE id = %s", (pid,))
+        result = cursor.fetchone()
+        if not result:
+            print(colored("❌ Prompt nicht gefunden.", "RED"))
+            return
+        old_content = result[0] or ""
+
+        print("🔧 Editor wird geöffnet...")
+        with tempfile.NamedTemporaryFile(suffix=".tmp", delete=False, mode="w+", encoding="utf-8") as tf:
+            editor = os.environ.get("EDITOR", "nano")
+            tf_path = tf.name
+            tf.write(old_content)
+            tf.flush()
+            subprocess.call([editor, tf_path])
+            tf.seek(0)
+            new_content = tf.read()
+            os.unlink(tf_path)
+
+        value = new_content
+    else:
+        value = input(f"📝 Neuer Wert für {field}: ")
+
     cursor.execute(
         f"UPDATE {TABLE} SET {field} = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s",
         (value, pid)
