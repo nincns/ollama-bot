@@ -4,7 +4,7 @@ from configparser import ConfigParser
 
 def load_db_config():
     config = ConfigParser()
-    config.read("private/.mariadb_access")
+    config.read("../private/.mariadb_access")
     client = config["client"]
     return {
         "host": client.get("host", "127.0.0.1"),
