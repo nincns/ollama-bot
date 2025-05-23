@@ -134,6 +134,12 @@ def run_dispatcher_cycle():
     cursor = conn.cursor(dictionary=True)
 
     open_requests = load_open_requests(cursor)
+    if not open_requests:
+        # Keine offenen Anfragen → kein Output
+        cursor.close()
+        conn.close()
+        return
+
     agents = get_available_agents(cursor)
     prompts = get_all_pre_prompts(cursor)
     model_catalog = get_model_catalog(cursor)
