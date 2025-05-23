@@ -87,6 +87,9 @@ def log_agent_info(cursor):
     gpu_util, gpu_used, gpu_total = get_gpu_info()
     ram_total_mb = psutil.virtual_memory().total // 1024 // 1024  # ⇨ RAM gesamt in MB
 
+    # Debug-Ausgabe zur Verifikation (optional)
+    print(f"[DEBUG] RAM gesamt erkannt: {ram_total_mb} MB")
+
     # agent_log bei Modelländerung aktualisieren
     if status:
         cursor.execute("""
@@ -101,7 +104,7 @@ def log_agent_info(cursor):
                 VALUES (%s, %s, %s, %s, %s)
             """, (None, AGENT_NAME, "status", model_info_str, datetime.now()))
 
-    # agent_status aktualisieren – jetzt mit ram_mem_total_mb
+    # Agentstatus schreiben – mit vollständigen Performancewerten inkl. RAM
     cursor.execute("""
         REPLACE INTO agent_status (
             agent_name, hostname, last_seen, performance_class,
@@ -126,32 +129,6 @@ def log_agent_info(cursor):
         gpu_used,
         gpu_total,
         ram_total_mb
-    ))
-
-    # Aktualisiere agent_status
-    cursor.execute("""
-        REPLACE INTO agent_status (
-            agent_name, hostname, last_seen, performance_class,
-            recommended_models, model_list, model_active, runtime_status, is_available, notes,
-            cpu_load_percent, mem_used_percent, gpu_util_percent,
-            gpu_mem_used_mb, gpu_mem_total_mb
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-    """, (
-        AGENT_NAME,
-        socket.gethostname(),
-        datetime.now(),
-        None,           # performance_class
-        None,           # recommended_models
-        model_info_str,
-        active_model,
-        runtime_status_str,
-        True,
-        None,
-        cpu,
-        mem,
-        gpu_util,
-        gpu_used,
-        gpu_total
     ))
 
     #print(f"[{datetime.now().strftime('%H:%M:%S')}] Status-Update ✅ Modell: {active_model}") #nur zum Troubleshooting
