@@ -1,5 +1,6 @@
+
 #!/usr/bin/env python3
-# Filename: manage_modells.py
+# Filename: manage_models.py
 import mysql.connector
 import configparser
 from tabulate import tabulate
@@ -29,8 +30,10 @@ def list_models():
     conn = connect_db()
     cursor = conn.cursor()
     cursor.execute(f"""
-        SELECT id, display_name, model_name, version, provider, model_size, supports_chat,
-               supports_reasoning, supports_knowledge, is_active
+        SELECT id, display_name, model_name, version, provider, model_size, language_support,
+               supports_chat, supports_reasoning, supports_knowledge,
+               requires_gpu, min_ram_mb, min_vram_mb,
+               tags, is_active
         FROM {TABLE}
     """)
     rows = cursor.fetchall()
@@ -57,17 +60,24 @@ def add_model():
     supports_chat = prompt_input("Unterstützt Chat (0/1):", "1")
     supports_reasoning = prompt_input("Unterstützt Reasoning (0/1):", "0")
     supports_knowledge = prompt_input("Unterstützt Wissensabfragen (0/1):", "0")
+    requires_gpu = prompt_input("Benötigt GPU (0/1):", "0")
+    min_ram_mb = prompt_input("Min. RAM in MB:", "0")
+    min_vram_mb = prompt_input("Min. VRAM in MB:", "0")
     tags = prompt_input("Tags/Stichworte kommasepariert:", "deutsch, schnell, low-resource")
     notes = prompt_input("Zusatzinformationen:", "nur für Testzwecke")
 
     conn = connect_db()
     cursor = conn.cursor()
     cursor.execute(f"""
-        INSERT INTO {TABLE} (model_name, display_name, provider, version, model_size, language_support,
-        supports_chat, supports_reasoning, supports_knowledge, tags, notes)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO {TABLE} (
+            model_name, display_name, provider, version, model_size, language_support,
+            supports_chat, supports_reasoning, supports_knowledge,
+            requires_gpu, min_ram_mb, min_vram_mb,
+            tags, notes
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """, (model_name, display_name, provider, version, model_size, language_support,
-          int(supports_chat), int(supports_reasoning), int(supports_knowledge), tags, notes))
+          int(supports_chat), int(supports_reasoning), int(supports_knowledge),
+          int(requires_gpu), int(min_ram_mb), int(min_vram_mb), tags, notes))
     conn.commit()
     cursor.close()
     conn.close()
@@ -92,7 +102,10 @@ def edit_model():
         if col == "id":
             continue
         new_val = prompt_input(f"{col.replace('_', ' ').capitalize()}:", f"{model[i]}", default=model[i])
-        updated.append(new_val if col.startswith('supports_') or col == 'is_active' else str(new_val))
+        if col.startswith('supports_') or col in ('is_active', 'requires_gpu', 'min_ram_mb', 'min_vram_mb'):
+            updated.append(int(new_val))
+        else:
+            updated.append(str(new_val))
 
     update_clause = ", ".join([f"{col} = %s" for col in columns if col != "id"])
     cursor.execute(f"UPDATE {TABLE} SET {update_clause} WHERE id = %s", (*updated, model_id))
