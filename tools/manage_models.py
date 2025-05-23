@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # Filename: manage_modells.py
 import mysql.connector
-from tabulate import tabulate
 import configparser
+from tabulate import tabulate
 
 ACCESS_FILE = "../private/.mariadb_access"
-TABLE = "modell_catalog"
+TABLE = "model_catalog"
 
 def connect_db():
     config = configparser.ConfigParser()
@@ -37,19 +37,26 @@ def prompt_input(prompt, example, default=None):
 
 def add_model():
     print("\n--- Neues Modell hinzufügen ---")
-    name = prompt_input("Name des Modells:", "tinyllama-1.1b-gguf")
-    description = prompt_input("Kurzbeschreibung des Modells:", "Kleines Modell für einfache deutsche Anfragen, sehr schnell.")
-    context_size = prompt_input("Maximale Kontextgröße (Tokens):", "2048")
-    quantization = prompt_input("Quantisierungsstufe:", "Q4_K_M")
-    hardware_hint = prompt_input("Empfohlene Hardware (optional):", "mind. 8 GB RAM, CPU ausreichend")
+    model_name = prompt_input("Interner Modellname:", "tinyllama-1.1b-gguf")
+    display_name = prompt_input("Anzeigename:", "TinyLLaMA Deutsch")
+    provider = prompt_input("Anbieter (ollama, openai, local, huggingface):", "local")
+    version = prompt_input("Versionsbezeichnung:", "v1")
+    model_size = prompt_input("Modellgröße (small, medium, large, xl):", "small")
+    language_support = prompt_input("Unterstützte Sprachen (kommasepariert):", "de,en")
+    supports_chat = prompt_input("Unterstützt Chat (0/1):", "1")
+    supports_reasoning = prompt_input("Unterstützt Reasoning (0/1):", "0")
+    supports_knowledge = prompt_input("Unterstützt Wissensabfragen (0/1):", "0")
     tags = prompt_input("Tags/Stichworte kommasepariert:", "deutsch, schnell, low-resource")
+    notes = prompt_input("Zusatzinformationen:", "nur für Testzwecke")
 
     conn = connect_db()
     cursor = conn.cursor()
     cursor.execute(f"""
-        INSERT INTO {TABLE} (name, description, context_size, quantization, hardware_hint, tags)
-        VALUES (%s, %s, %s, %s, %s, %s)
-    """, (name, description, context_size, quantization, hardware_hint, tags))
+        INSERT INTO {TABLE} (model_name, display_name, provider, version, model_size, language_support,
+        supports_chat, supports_reasoning, supports_knowledge, tags, notes)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    """, (model_name, display_name, provider, version, model_size, language_support,
+          int(supports_chat), int(supports_reasoning), int(supports_knowledge), tags, notes))
     conn.commit()
     cursor.close()
     conn.close()
@@ -74,18 +81,10 @@ def edit_model():
         if col == "id":
             continue
         new_val = prompt_input(f"{col.replace('_', ' ').capitalize()}:", f"{model[i]}", default=model[i])
-        updated.append(new_val)
+        updated.append(new_val if col.startswith('supports_') or col == 'is_active' else str(new_val))
 
-    cursor.execute(f"""
-        UPDATE {TABLE} SET
-            name = %s,
-            description = %s,
-            context_size = %s,
-            quantization = %s,
-            hardware_hint = %s,
-            tags = %s
-        WHERE id = %s
-    """, (*updated, model_id))
+    update_clause = ", ".join([f"{col} = %s" for col in columns if col != "id"])
+    cursor.execute(f"UPDATE {TABLE} SET {update_clause} WHERE id = %s", (*updated, model_id))
     conn.commit()
     cursor.close()
     conn.close()
