@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-# Filename: prompt_admin.py
-
+# Filename: manage_prompts.py
 import mysql.connector
 from configparser import ConfigParser
 from getpass import getpass
@@ -52,19 +51,23 @@ def create_prompt(cfg):
             break
         content_lines.append(line)
     content = "\n".join(content_lines)
+    language = input("Sprache (z. B. de/en) [de]: ").strip() or "de"
+    model = input("Bevorzugtes Modell (optional): ").strip()
 
     conn = get_connection(cfg)
     cursor = conn.cursor()
     cursor.execute(f"""
-        INSERT INTO {TABLE} (name, role, version, description, tags, content)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO {TABLE} (name, role, version, description, tags, content, language, model)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
           version = VALUES(version),
           description = VALUES(description),
           tags = VALUES(tags),
           content = VALUES(content),
+          language = VALUES(language),
+          model = VALUES(model),
           updated_at = CURRENT_TIMESTAMP
-    """, (name, role, version, description, tags, content))
+    """, (name, role, version, description, tags, content, language, model))
     conn.commit()
     cursor.close()
     conn.close()
@@ -87,8 +90,12 @@ def view_prompt(cfg):
     conn = get_connection(cfg)
     cursor = conn.cursor()
     cursor.execute(f"SELECT * FROM {TABLE} WHERE id = %s", (pid,))
-    for desc, val in zip(cursor.column_names, cursor.fetchone() or []):
-        print(f"{desc}: {val}")
+    result = cursor.fetchone()
+    if not result:
+        print(colored("❌ Prompt nicht gefunden.", "RED"))
+    else:
+        for desc, val in zip(cursor.column_names, result):
+            print(f"{desc}: {val}")
     cursor.close()
     conn.close()
 
@@ -96,7 +103,7 @@ def edit_field(cfg):
     pid = input("🛠 Prompt-ID: ")
     if not pid.isdigit():
         return
-    fields = ["name", "role", "version", "description", "tags", "content", "is_active"]
+    fields = ["name", "role", "version", "description", "tags", "content", "is_active", "language", "model"]
     print("Feld auswählen:")
     for i, f in enumerate(fields, 1):
         print(f"{i}) {f}")
