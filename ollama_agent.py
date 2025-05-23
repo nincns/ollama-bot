@@ -13,6 +13,8 @@ from datetime import datetime, timedelta
 import threading
 import psutil
 
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(message)s")
+
 # === Konfiguration ===
 ACCESS_FILE = "private/.mariadb_access"
 OLLAMA_URL = "http://localhost:11434/api/chat"
