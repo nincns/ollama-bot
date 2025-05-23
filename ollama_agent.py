@@ -179,6 +179,7 @@ def handle_request(cfg, row):
         # Dialog-ID ermitteln oder neu erstellen
         dialog_id = get_or_create_dialog_id(cursor, user_id)
 
+        # 🧩 pre_prompt_id sicher in die DB schreiben
         cursor.execute("""
             UPDATE conversations
             SET locked_by_agent = %s,
@@ -212,7 +213,7 @@ def handle_request(cfg, row):
         """, (reply, model, AGENT_NAME, conv_id))
         conn.commit()
 
-        log_text = f"Model={model} | Dauer={duration:.1f}s"
+        log_text = f"Model={model} | Prompt={row.get('pre_prompt_id')} | Dauer={duration:.1f}s"
         cursor.execute("""
             INSERT INTO agent_log (conversation_id, agent_name, log_type, message, timestamp)
             VALUES (%s, %s, 'assignment', %s, %s)
