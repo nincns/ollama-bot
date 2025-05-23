@@ -43,8 +43,8 @@ def live_log():
             # conversations
             cursor.execute("""
                 SELECT id, timestamp, user_id, message_status,
-                       LEFT(user_message, 50), LEFT(model_response, 50),
-                       model_used, agent, dialog_id
+                    LEFT(user_message, 50), LEFT(model_response, 50),
+                    model_used, agent, dialog_id, pre_prompt_id
                 FROM conversations
                 WHERE timestamp > %s ORDER BY timestamp ASC
             """, (last_ts["conversations"],))
