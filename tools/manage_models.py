@@ -2,15 +2,18 @@
 # Filename: manage_modells.py
 import mysql.connector
 from tabulate import tabulate
+import configparser
 
 ACCESS_FILE = "../private/.mariadb_access"
-TABLE = "model_catalog"
+TABLE = "modell_catalog"
 
 def connect_db():
-    with open(ACCESS_FILE, 'r') as f:
-        creds = dict(line.strip().split('=', 1) for line in f if '=' in line)
+    config = configparser.ConfigParser()
+    config.read(ACCESS_FILE)
+    creds = config['client']
     return mysql.connector.connect(
         host=creds['host'],
+        port=int(creds.get('port', 3306)),
         user=creds['user'],
         password=creds['password'],
         database=creds['database']

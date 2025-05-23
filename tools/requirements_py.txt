@@ -8,3 +8,4 @@ mysql-connector-python
 pymysql
 python-telegram-bot[job-queue]==20.7
 tabulate
+configparser==7.2.0
