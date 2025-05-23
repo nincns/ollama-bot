@@ -1,82 +1,91 @@
-# Roadmap: Ollama Bot Plattform (Telegram Connector + Agent + Datenbank)
+# Ollama Bot Plattform
 
-## ✅ Aktueller Funktionsstand
-
-### Telegram-Connector
-
-* Nachrichtenempfang via Telegram-Bot
-* Nutzer-Authentifizierung und -Neuanlage (`user_profile`)
-* Speicherung neuer Nachrichten in `conversations`
-* Gruppierung von Konversationen nach Zeit/Trigger
-
-### Ollama-Agent
-
-* Verarbeitung neuer `conversations`-Einträge
-* Nutzung lokaler Ollama-Modelle
-* Kontextaufbau mit Pre-/Postprompts (statisch aus DB)
-* Speicherung von Ergebnissen & Metriken in Datenbank
-* Eigene Lastmessung (CPU, RAM, Threads)
-
-### Datenbanksystem (MariaDB)
-
-* Genutzte Tabellen: `user_profile`, `conversations`, `prompts`, `agent_log`, `db_meta`
-* Teilweise genutzt / vorbereitet: `scripts`, `conversation_log`, `agent_status`, `script_usage`, `reasoning_log`
-* Nicht oder nur konzeptionell vorhanden: `prompt_analysis`, `conversation_tags`, `performance_class`
+Ein modulares System zur Verarbeitung von Telegram-Nachrichten über lokale Sprachmodelle (Ollama) mit intelligenter Agentensteuerung und persistenter Datenbanklogik.
 
 ---
 
-## 🔄 Analyse: Tabellen ohne aktuelle Funktion
+## ✅ Aktueller Projektstatus (Mai 2025)
 
-| Tabelle / Spalte              | Zweck laut Konzeption                | Status                  |
-| ----------------------------- | ------------------------------------ | ----------------------- |
-| `scripts`                     | Verwaltung von Shell/Python-Skripten | vorgesehen              |
-| `prompt_analysis`             | Bewertet Modellantworten qualitativ  | fehlt im Schema         |
-| `conversation_tags`           | thematische Klassifikation           | fehlt im Schema         |
-| `user_profile.language`       | Sprachwahl für Modellauswahl         | existiert, ungenutzt    |
-| `agent_log.performance_class` | Leistungsklasse für Matching         | nicht vorhanden         |
-| `reasoning_log`               | Modellgründe + Confidence Score      | vorhanden, ungenutzt    |
-| `agent_status`                | Live-Zustand und Metriken pro Agent  | vorhanden, aber inaktiv |
+### Komponenten
 
----
+**Telegram Connector** (`telegram_connector_db.py`)
 
-## 🔧 Statisch definierte Parameter mit Potenzial zur Dynamisierung
+* Telegram-Bot-Empfang
+* Nutzererkennung und -neuanlage in `user_profile`
+* Speichern von Nachrichten in `conversations`
+* Timeout-basierte Konversationsbestätigung
 
-| Parameter                 | Aktuell                | Potenzial                        |
-| ------------------------- | ---------------------- | -------------------------------- |
-| `OLLAMA_URL`              | fix                    | dynamisch pro Agent auswählbar   |
-| `AGENT_NAME`              | Hostname               | Klassifizierbar für Matching     |
-| Modellwahl im Prompt      | statisch (`tinyllama`) | dynamisch aus `user_profile`     |
-| Prompt-Auswahl            | manuell                | über `prompts`-Tabelle steuerbar |
-| Timeout Telegram (15 Min) | fix                    | konfigurierbar pro Nutzer        |
+**Ollama Agent** (`ollama_agent.py`)
 
----
+* Periodisches Pollen nach zugewiesenen Aufgaben
+* Kontextaufbau per `pre`- und `post`-Prompts aus der Datenbank
+* Kommunikation mit lokalem Ollama-Modell
+* Persistenz der Antworten und Metriken
+* Eintrag von Systemmetriken in `agent_status`
 
-## 🚀 Erweiterte Roadmap (Stand: Mai 2025)
+**Watchdog Dispatcher** (`ollama_watchdog.py`)
 
-### Entwicklungsstand (nach Implementierung)
+* Zuweisung offener Konversationen an passende Agents
+* Bewertet `pre`-Prompts anhand Schlagwörter und Keywords
+* Auswahl verfügbarer Agents nach Last (CPU/RAM)
 
-* [x] Telegram Connector (inkl. Nutzeranlage, Nachrichtenempfang)
-* [x] DB-Modell für Konversationen, Prompts, Nutzer
-* [x] Ollama Agent: Verarbeitung neuer Einträge mit Statuswechsel
-* [x] Kontextbildung mit Pre-/Postprompts
-* \[\~] Watchdog: Grundstruktur zur Verteilung vorhanden
+**Tools** (`tools/*.py`)
 
-### Offene Erweiterungen / geplante Features
+* Verwaltungsskripte für Prompts, Nutzer, Modelle, Agenten, Datenbankzustand
+* Setup- und Monitoring-Tools (siehe `tools/README_tools.md` in Planung)
 
-* [ ] Priorisierung nach Keywords, Tokenanzahl, Triggern
-* [ ] Agent-Auswertung über `agent_status` + `performance_class`
-* [ ] Promptanalyse über `prompt_analysis` für Qualitätsmetriken
-* [ ] Nutzung von `scripts` & `script_usage` bei bestimmten Anfragen
-* [ ] Einsatz von `reasoning_log` für Modell-Erklärungen
-* [ ] Aufbau eines Tagging-Systems über `conversation_tags`
-* [ ] Konfigurierbare Timeout- und Modellwahl pro Nutzer
-* [ ] Admin-Weboberfläche zur Prompt-, Script- und Userpflege
+**Datenbanktabellen (aktiv genutzt)**
+
+* `user_profile`, `conversations`, `prompts`, `scripts`
+* `agent_log`, `agent_status`, `db_meta`
 
 ---
 
-## ✍️ Weiterführende Ideen
+## 📈 Geplante Weiterentwicklungen (Ausblick)
 
-* Modellwechsel anhand Kontextstimmung (technisch, kreativ etc.)
-* Long-Term Memory per SQL-Referenzen auf frühere Threads
-* Transparente Agent-Matching-Logik für Load-Balancing
-* Tokenbudgetierung für Kontextlänge + Qualität
+Basierend auf vorhandenen, aber noch nicht genutzten Tabellen und Feldern:
+
+| Tabelle / Spalte              | Ziel / Nutzen                                              |
+| ----------------------------- | ---------------------------------------------------------- |
+| `prompt_analysis`             | Bewertung der Modellantworten zur Qualitätsmessung         |
+| `conversation_tags`           | Thematische Verschlagwortung von Dialogen                  |
+| `reasoning_log`               | Speicherung von Modellbegründungen inkl. Confidence-Werten |
+| `agent_log.performance_class` | Klassifizierung zur intelligenten Agentenauswahl           |
+| `script_usage`                | Nachverfolgung von ausgeführten Scripts pro Nutzer/Kontext |
+| `user_profile.language`       | Modellwahl abhängig von Sprachpräferenzen                  |
+
+Diese Strukturen bilden die Grundlage für:
+
+* Automatisiertes Prompt-Routing
+* Qualitätssicherung der Antworten
+* Performance-Matching von Agents
+* Adaptive Modellwahl & Personalisierung
+
+---
+
+## 🚀 Ziele & Vision
+
+* Multi-Agent-System mit dynamischem Load-Balancing
+* Kontextabhängiger Prompt-Einsatz und Modellsteuerung
+* Transparente Historie, Analyse und Performancebewertung
+* Admin-UI zur Verwaltung von Prompts, Nutzern und Scripts
+* Modularer Ausbau für Discord, Web-Frontend oder CLI
+
+---
+
+## ⚡ Installation & Start (in Vorbereitung)
+
+> ⚙️ Einrichtungsskripte für Datenbank & Komponenten folgen.
+
+```bash
+# Platzhalter
+python telegram_connector_db.py &
+python ollama_watchdog.py &
+python ollama_agent.py &
+```
+
+---
+
+## 📊 Lizenz / Mitwirkung
+
+Prototypisches Projekt unter Entwicklung. Feedback willkommen!
