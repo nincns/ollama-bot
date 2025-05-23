@@ -3,6 +3,7 @@
 import mysql.connector
 import configparser
 from tabulate import tabulate
+import textwrap
 
 ACCESS_FILE = "../private/.mariadb_access"
 TABLE = "model_catalog"
@@ -19,13 +20,23 @@ def connect_db():
         database=creds['database']
     )
 
+def wrap_text(text, width=60):
+    if isinstance(text, str) and len(text) > width:
+        return '\n'.join(textwrap.wrap(text, width))
+    return text
+
 def list_models():
     conn = connect_db()
     cursor = conn.cursor()
-    cursor.execute(f"SELECT * FROM {TABLE}")
+    cursor.execute(f"""
+        SELECT id, display_name, model_name, version, provider, model_size, supports_chat,
+               supports_reasoning, supports_knowledge, is_active
+        FROM {TABLE}
+    """)
     rows = cursor.fetchall()
     headers = [i[0] for i in cursor.description]
-    print(tabulate(rows, headers=headers, tablefmt="fancy_grid"))
+    wrapped_rows = [tuple(wrap_text(col) for col in row) for row in rows]
+    print(tabulate(wrapped_rows, headers=headers, tablefmt="fancy_grid"))
     cursor.close()
     conn.close()
 
