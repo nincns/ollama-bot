@@ -28,7 +28,7 @@ def show_agent_status():
     conn = connect_db()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT id, agent, last_seen, performance_rating FROM agent_log")
+    cursor.execute("SELECT id, agent, updated_at, performance_rating FROM agent_log")
     rows = cursor.fetchall()
 
     table = Table(title="Agentenstatus")
@@ -38,11 +38,11 @@ def show_agent_status():
     table.add_column("Leistung")
 
     for row in rows:
-        id_, agent, last_seen, perf = row
+        id_, agent, updated_at, perf = row
         table.add_row(
             str(id_),
             agent,
-            last_seen.strftime('%Y-%m-%d %H:%M:%S') if last_seen else '-',
+            updated_at.strftime('%Y-%m-%d %H:%M:%S') if updated_at else '-',
             f"{perf:.2f}" if perf is not None else "-"
         )
 
