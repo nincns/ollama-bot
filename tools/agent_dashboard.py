@@ -28,17 +28,23 @@ def show_agent_status():
     conn = connect_db()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT id, agent, status, last_seen FROM agent_log")
+    cursor.execute("SELECT id, agent, last_seen, performance_rating FROM agent_log")
     rows = cursor.fetchall()
+
     table = Table(title="Agentenstatus")
     table.add_column("ID")
     table.add_column("Agent")
-    table.add_column("Status")
     table.add_column("Letzte Aktivität")
+    table.add_column("Leistung")
 
     for row in rows:
-        id_, agent, status, last_seen = row
-        table.add_row(str(id_), agent, status, last_seen.strftime('%Y-%m-%d %H:%M:%S') if last_seen else '-')
+        id_, agent, last_seen, perf = row
+        table.add_row(
+            str(id_),
+            agent,
+            last_seen.strftime('%Y-%m-%d %H:%M:%S') if last_seen else '-',
+            f"{perf:.2f}" if perf is not None else "-"
+        )
 
     console.print(table)
     cursor.close()
