@@ -28,17 +28,17 @@ def show_agent_status():
     conn = connect_db()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT id, name, status, last_seen FROM agent_log")
+    cursor.execute("SELECT id, agent, status, last_seen FROM agent_log")
     rows = cursor.fetchall()
     table = Table(title="Agentenstatus")
     table.add_column("ID")
-    table.add_column("Name")
+    table.add_column("Agent")
     table.add_column("Status")
     table.add_column("Letzte Aktivität")
 
     for row in rows:
-        id_, name, status, last_seen = row
-        table.add_row(str(id_), name, status, last_seen.strftime('%Y-%m-%d %H:%M:%S') if last_seen else '-')
+        id_, agent, status, last_seen = row
+        table.add_row(str(id_), agent, status, last_seen.strftime('%Y-%m-%d %H:%M:%S') if last_seen else '-')
 
     console.print(table)
     cursor.close()
@@ -49,14 +49,14 @@ def show_agent_performance():
     cursor = conn.cursor(dictionary=True)
 
     cursor.execute("""
-        SELECT a.name AS agent_name,
+        SELECT a.agent AS agent_name,
                COUNT(c.id) AS processed,
                SUM(c.token_count) AS total_tokens,
                AVG(TIMESTAMPDIFF(SECOND, c.processing_started_at, c.processing_finished_at)) AS avg_duration
         FROM conversations c
-        JOIN agent_log a ON c.locked_by_agent = a.name
+        JOIN agent_log a ON c.locked_by_agent = a.agent
         WHERE c.processing_started_at IS NOT NULL AND c.processing_finished_at IS NOT NULL
-        GROUP BY a.name
+        GROUP BY a.agent
         ORDER BY processed DESC
     """)
     rows = cursor.fetchall()
