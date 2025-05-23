@@ -123,6 +123,25 @@ def log_agent_info(cursor):
 
     #print(f"[{datetime.now().strftime('%H:%M:%S')}] Status-Update ✅ Modell: {active_model}") #nur zum Troubleshooting
 
+# === Prompt Logik ===
+
+def find_best_prompt_id_by_tags(cursor, user_text):
+    cursor.execute("SELECT id, tags FROM prompts WHERE is_active = 1 AND role = 'pre' AND tags IS NOT NULL")
+    prompts = cursor.fetchall()
+
+    user_words = [w.strip(",.!?").lower() for w in user_text.split()]
+    max_hits = 0
+    best_id = None
+
+    for prompt in prompts:
+        tag_words = [tag.strip().lower() for tag in prompt["tags"].split(",") if tag.strip()]
+        hits = sum(1 for word in user_words if word in tag_words)
+        if hits > max_hits:
+            max_hits = hits
+            best_id = prompt["id"]
+
+    return best_id
+
 # === Konversation aus DB laden ===
 def build_chat_history(cursor, dialog_id, new_prompt):
     cursor.execute("""
@@ -154,7 +173,7 @@ def handle_request(cfg, row):
         prompt = row["user_message"]
         user_id = row["user_id"]
 
-        # 🧠 Pre-Prompt-Erkennung durch Keyword-Matching, falls nicht vorhanden
+        # 🧠 Pre-Prompt-Erkennung durch präzises Wort-Matching gegen Tags
         if not row.get("pre_prompt_id"):
             best_id = find_best_prompt_id_by_tags(cursor, prompt)
             if best_id:
@@ -172,14 +191,13 @@ def handle_request(cfg, row):
                 if result.get("content"):
                     pre_prompt_text = result["content"]
         if not model:
-            model = "stablelm2:1.6b"  # Fallback
+            model = "stablelm2:1.6b"
 
         logging.info(f"⛰ Bearbeite Anfrage {conv_id} mit Modell '{model}'")
 
-        # Dialog-ID ermitteln oder neu erstellen
         dialog_id = get_or_create_dialog_id(cursor, user_id)
 
-        # 🧩 pre_prompt_id sicher in die DB schreiben
+        # 🧩 pre_prompt_id in DB sichern
         cursor.execute("""
             UPDATE conversations
             SET locked_by_agent = %s,
@@ -192,7 +210,7 @@ def handle_request(cfg, row):
         """, (AGENT_NAME, dialog_id, row.get("pre_prompt_id"), conv_id))
         conn.commit()
 
-        # Verlauf aufbauen und optional Pre-Prompt voranstellen
+        # Prompt-Verlauf aufbauen, Pre-Prompt ggf. voranstellen
         start_time = datetime.now()
         history = build_chat_history(cursor, dialog_id, prompt)
         if pre_prompt_text:
