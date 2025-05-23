@@ -182,18 +182,25 @@ def handle_request(cfg, row):
         # 🧠 Modellwahl: conversation → prompt → Fallback
         model = row.get("model_used")
         pre_prompt_text = None
+        prompt_name = None  # optional für Log
         if not model and row.get("pre_prompt_id"):
-            cursor.execute("SELECT model, content FROM prompts WHERE id = %s", (row["pre_prompt_id"],))
+            cursor.execute("SELECT model, content, name FROM prompts WHERE id = %s", (row["pre_prompt_id"],))
             result = cursor.fetchone()
             if result:
                 if result.get("model"):
                     model = result["model"]
                 if result.get("content"):
                     pre_prompt_text = result["content"]
+                if result.get("name"):
+                    prompt_name = result["name"]
         if not model:
             model = "stablelm2:1.6b"
 
-        logging.info(f"⛰ Bearbeite Anfrage {conv_id} mit Modell '{model}'")
+        # 🧾 Logging mit Prompt-ID und optional Name
+        prompt_info = f"Prompt-ID={row.get('pre_prompt_id') or '-'}"
+        if prompt_name:
+            prompt_info += f" ({prompt_name})"
+        logging.info(f"⛰ Bearbeite Anfrage {conv_id} mit Modell '{model}' | {prompt_info}")
 
         dialog_id = get_or_create_dialog_id(cursor, user_id)
 
