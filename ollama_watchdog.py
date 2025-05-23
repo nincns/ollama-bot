@@ -13,6 +13,8 @@ INTERVAL_SECONDS = 10  # Zeit zwischen den Zyklen
 
 logging.basicConfig(level=LOGLEVEL, format="%(asctime)s [%(levelname)s] %(message)s")
 
+# === DB-Zugriff ===
+
 def load_db_config():
     config = ConfigParser()
     config.read(ACCESS_FILE)
@@ -45,6 +47,12 @@ def get_all_pre_prompts(cursor):
     cursor.execute("SELECT * FROM prompts WHERE role = 'pre'")
     return cursor.fetchall()
 
+def get_model_catalog(cursor):
+    cursor.execute("SELECT * FROM model_catalog WHERE is_active = 1")
+    return cursor.fetchall()
+
+# === Logikfunktionen ===
+
 def score_prompt(prompt, message):
     score = 0
     keywords = prompt.get("tags", "")
@@ -65,6 +73,25 @@ def assign_request(cursor, request_id, agent_name, pre_prompt_id):
         WHERE id = %s
     """, (agent_name, pre_prompt_id, request_id))
 
+def is_agent_suitable(agent, model):
+    try:
+        total_ram_mb = agent.get("total_ram_mb", 0)
+        used_ram_percent = agent.get("mem_used_percent", 100)
+        available_ram_mb = (1 - used_ram_percent / 100) * total_ram_mb
+        available_vram_mb = agent.get("gpu_mem_total_mb", 0) - agent.get("gpu_mem_used_mb", 0)
+
+        if model.get("requires_gpu") and agent.get("gpu_mem_total_mb", 0) <= 0:
+            return False
+        if model.get("min_ram_mb") and available_ram_mb < model["min_ram_mb"]:
+            return False
+        if model.get("min_vram_mb") and available_vram_mb < model["min_vram_mb"]:
+            return False
+        return True
+    except:
+        return False
+
+# === Haupt-Dispatcher ===
+
 def run_dispatcher_cycle():
     cfg = load_db_config()
     conn = mysql.connector.connect(**cfg)
@@ -73,6 +100,7 @@ def run_dispatcher_cycle():
     open_requests = load_open_requests(cursor)
     agents = get_available_agents(cursor)
     prompts = get_all_pre_prompts(cursor)
+    model_catalog = get_model_catalog(cursor)
 
     print(f"\n🔍 {len(open_requests)} offene Anfragen gefunden.")
     print(f"⚙️ {len(agents)} verfügbare Agents gefunden:\n")
@@ -85,24 +113,42 @@ def run_dispatcher_cycle():
 
         best_score = -1
         best_prompt_id = None
+        best_prompt = None
+
         for prompt in prompts:
             score = score_prompt(prompt, req["user_message"])
             print(f"   → Prompt {prompt['id']} („{prompt['name']}“): Score {score}")
             if score > best_score:
                 best_score = score
                 best_prompt_id = prompt["id"]
+                best_prompt = prompt
 
-        if agents and best_prompt_id:
-            selected_agent = agents[0]
-            print(f"✅ Zuweisung: Agent '{selected_agent['agent_name']}' übernimmt mit PrePrompt {best_prompt_id}")
-            assign_request(cursor, req["id"], selected_agent["agent_name"], best_prompt_id)
-        else:
-            print("⚠️ Kein Agent verfügbar oder kein passender PrePrompt gefunden.")
+        if not best_prompt:
+            print("⚠️ Kein passender PrePrompt gefunden.")
+            continue
+
+        model_name = best_prompt.get("model")
+        model = next((m for m in model_catalog if m["model_name"] == model_name), None)
+
+        if not model:
+            print(f"⚠️ Modell '{model_name}' nicht im Katalog gefunden.")
+            continue
+
+        suitable_agents = [a for a in agents if is_agent_suitable(a, model)]
+        if not suitable_agents:
+            print(f"⚠️ Kein geeigneter Agent für Modell '{model_name}' mit RAM/VRAM verfügbar.")
+            continue
+
+        selected_agent = suitable_agents[0]
+        print(f"✅ Zuweisung: Agent '{selected_agent['agent_name']}' übernimmt mit PrePrompt {best_prompt_id}")
+        assign_request(cursor, req["id"], selected_agent["agent_name"], best_prompt_id)
 
     conn.commit()
     cursor.close()
     conn.close()
     print("⏳ Zyklus abgeschlossen. Warte auf nächste Runde ...\n")
+
+# === Main Loop ===
 
 def main():
     while True:
