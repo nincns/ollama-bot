@@ -173,30 +173,36 @@ def handle_request(cfg, row):
         prompt = row["user_message"]
         user_id = row["user_id"]
 
+        logging.debug(f"🛠 Anfrage erhalten: ID={conv_id} | Text='{prompt}'")
+        logging.debug("🔍 Starte Tag-Matching auf pre-Prompts...")
+
         # 🧠 Pre-Prompt-Erkennung durch präzises Wort-Matching gegen Tags
         if not row.get("pre_prompt_id"):
             best_id = find_best_prompt_id_by_tags(cursor, prompt)
             if best_id:
+                logging.debug(f"➤ Gewählt: Prompt ID {best_id}")
                 row["pre_prompt_id"] = best_id
+            else:
+                logging.debug("⚠️ Kein passender Pre-Prompt gefunden.")
 
         # 🧠 Modellwahl: conversation → prompt → Fallback
         model = row.get("model_used")
         pre_prompt_text = None
-        prompt_name = None  # optional für Log
+        prompt_name = None
         if not model and row.get("pre_prompt_id"):
             cursor.execute("SELECT model, content, name FROM prompts WHERE id = %s", (row["pre_prompt_id"],))
             result = cursor.fetchone()
             if result:
-                if result.get("model"):
-                    model = result["model"]
-                if result.get("content"):
-                    pre_prompt_text = result["content"]
-                if result.get("name"):
-                    prompt_name = result["name"]
+                model = result.get("model") or model
+                pre_prompt_text = result.get("content")
+                prompt_name = result.get("name")
+                logging.debug(f"📦 Modellzuordnung: {model} durch Prompt {prompt_name}")
+                if pre_prompt_text:
+                    logging.debug(f"🧠 Pre-Prompt-Inhalt (Auszug): {pre_prompt_text[:80]}...")
         if not model:
             model = "stablelm2:1.6b"
+            logging.debug(f"📦 Kein Modell im Prompt definiert. Fallback: {model}")
 
-        # 🧾 Logging mit Prompt-ID und optional Name
         prompt_info = f"Prompt-ID={row.get('pre_prompt_id') or '-'}"
         if prompt_name:
             prompt_info += f" ({prompt_name})"
@@ -222,6 +228,12 @@ def handle_request(cfg, row):
         history = build_chat_history(cursor, dialog_id, prompt)
         if pre_prompt_text:
             history.insert(0, {"role": "system", "content": pre_prompt_text})
+
+        logging.debug("💬 Zusammengesetzter Chatverlauf:")
+        for msg in history:
+            role = msg["role"]
+            snippet = msg["content"][:80].replace("\n", " ")
+            logging.debug(f"[{role}] {snippet}")
 
         reply = query_ollama(history, model)
         duration = (datetime.now() - start_time).total_seconds()
