@@ -154,14 +154,23 @@ def handle_request(cfg, row):
         prompt = row["user_message"]
         user_id = row["user_id"]
 
-        # 🧠 Modellwahl: conversations → prompt → Fallback
+        # 🧠 Pre-Prompt-Erkennung durch Keyword-Matching, falls nicht vorhanden
+        if not row.get("pre_prompt_id"):
+            best_id = find_best_prompt_id_by_tags(cursor, prompt)
+            if best_id:
+                row["pre_prompt_id"] = best_id
+
+        # 🧠 Modellwahl: conversation → prompt → Fallback
         model = row.get("model_used")
-        if not model:
-            pre_prompt_id = row.get("pre_prompt_id")
-            if pre_prompt_id:
-                cursor.execute("SELECT model FROM prompts WHERE id = %s", (pre_prompt_id,))
-                prompt_row = cursor.fetchone()
-                model = prompt_row["model"] if prompt_row and prompt_row.get("model") else None
+        pre_prompt_text = None
+        if not model and row.get("pre_prompt_id"):
+            cursor.execute("SELECT model, content FROM prompts WHERE id = %s", (row["pre_prompt_id"],))
+            result = cursor.fetchone()
+            if result:
+                if result.get("model"):
+                    model = result["model"]
+                if result.get("content"):
+                    pre_prompt_text = result["content"]
         if not model:
             model = "stablelm2:1.6b"  # Fallback
 
@@ -176,14 +185,18 @@ def handle_request(cfg, row):
                 locked_at = NOW(),
                 processing_started_at = NOW(),
                 message_status = 'progress',
-                dialog_id = %s
+                dialog_id = %s,
+                pre_prompt_id = %s
             WHERE id = %s
-        """, (AGENT_NAME, dialog_id, conv_id))
+        """, (AGENT_NAME, dialog_id, row.get("pre_prompt_id"), conv_id))
         conn.commit()
 
-        # Verlauf aufbauen und Modell anfragen
+        # Verlauf aufbauen und optional Pre-Prompt voranstellen
         start_time = datetime.now()
         history = build_chat_history(cursor, dialog_id, prompt)
+        if pre_prompt_text:
+            history.insert(0, {"role": "system", "content": pre_prompt_text})
+
         reply = query_ollama(history, model)
         duration = (datetime.now() - start_time).total_seconds()
 
@@ -199,7 +212,6 @@ def handle_request(cfg, row):
         """, (reply, model, AGENT_NAME, conv_id))
         conn.commit()
 
-        # Logging
         log_text = f"Model={model} | Dauer={duration:.1f}s"
         cursor.execute("""
             INSERT INTO agent_log (conversation_id, agent_name, log_type, message, timestamp)
