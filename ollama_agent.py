@@ -204,7 +204,6 @@ def handle_request(cfg, row):
         logging.debug(f"🛠 Anfrage erhalten: ID={conv_id} | Text='{prompt}'")
         logging.debug("🔍 Starte Tag-Matching auf pre-Prompts...")
 
-        # 🧠 Pre-Prompt-Erkennung durch präzises Wort-Matching gegen Tags
         if not row.get("pre_prompt_id"):
             best_id = find_best_prompt_id_by_tags(cursor, prompt)
             if best_id:
@@ -213,7 +212,6 @@ def handle_request(cfg, row):
             else:
                 logging.debug("⚠️ Kein passender Pre-Prompt gefunden.")
 
-        # 🧠 Modellwahl: conversation → prompt → Fallback
         model = row.get("model_used")
         pre_prompt_text = None
         prompt_name = None
@@ -231,6 +229,17 @@ def handle_request(cfg, row):
             model = "stablelm2:1.6b"
             logging.debug(f"📦 Kein Modell im Prompt definiert. Fallback: {model}")
 
+        # 🧩 Kompatibilitätsprüfung basierend auf Agent-Fähigkeit
+        if not is_model_supported_by_agent(cursor, AGENT_NAME, model):
+            logging.warning(f"⛔ Modell '{model}' ist nicht kompatibel mit Agent '{AGENT_NAME}' – Anfrage wird ignoriert.")
+            cursor.execute("""
+                UPDATE conversations
+                SET message_status = 'error', notes = 'Modell nicht kompatibel mit Agent'
+                WHERE id = %s
+            """, (conv_id,))
+            conn.commit()
+            return
+
         prompt_info = f"Prompt-ID={row.get('pre_prompt_id') or '-'}"
         if prompt_name:
             prompt_info += f" ({prompt_name})"
@@ -238,7 +247,6 @@ def handle_request(cfg, row):
 
         dialog_id = get_or_create_dialog_id(cursor, user_id)
 
-        # 🧩 pre_prompt_id in DB sichern
         cursor.execute("""
             UPDATE conversations
             SET locked_by_agent = %s,
@@ -251,7 +259,6 @@ def handle_request(cfg, row):
         """, (AGENT_NAME, dialog_id, row.get("pre_prompt_id"), conv_id))
         conn.commit()
 
-        # Prompt-Verlauf aufbauen, Pre-Prompt ggf. voranstellen
         start_time = datetime.now()
         history = build_chat_history(cursor, dialog_id, prompt)
         if pre_prompt_text:
@@ -266,7 +273,6 @@ def handle_request(cfg, row):
         reply = query_ollama(history, model)
         duration = (datetime.now() - start_time).total_seconds()
 
-        # Ergebnisse speichern
         cursor.execute("""
             UPDATE conversations
             SET model_response = %s,
@@ -352,6 +358,26 @@ def get_or_create_dialog_id(cursor, user_id):
             return last["dialog_id"]
 
     return str(uuid.uuid4())
+
+def is_model_supported_by_agent(cursor, agent_name: str, model_name: str) -> bool:
+    cursor.execute("SELECT * FROM model_catalog WHERE model_name = %s AND is_active = 1", (model_name,))
+    model = cursor.fetchone()
+    if not model:
+        return False
+
+    cursor.execute("SELECT * FROM agent_status WHERE agent_name = %s", (agent_name,))
+    agent = cursor.fetchone()
+    if not agent:
+        return False
+
+    if model.get("requires_gpu") and (not agent.get("gpu_mem_total_mb") or agent["gpu_mem_total_mb"] < 1024):
+        return False
+    if model.get("min_ram_mb") and agent.get("mem_used_percent", 100) > 90:
+        return False
+    if model.get("min_vram_mb") and (not agent.get("gpu_mem_total_mb") or agent["gpu_mem_total_mb"] < model["min_vram_mb"]):
+        return False
+
+    return True
 
 # === Hauptfunktion ===
 def status_updater(cfg):
