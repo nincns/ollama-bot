@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 import threading
 import psutil
 
-logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(message)s")
+#logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(message)s")
 
 # === Konfiguration ===
 ACCESS_FILE = "private/.mariadb_access"
