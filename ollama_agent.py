@@ -234,7 +234,7 @@ def handle_request(cfg, row):
             model = "stablelm2:1.6b"
             logging.debug(f"📦 Kein Modell im Prompt definiert. Fallback: {model}")
 
-        # 🧩 Kompatibilitätsprüfung basierend auf Agent-Fähigkeit
+        # 🧩 Kompatibilitätsprüfung basierend auf Agent-Fähigkeit (inkl. RAM/VRAM)
         if not is_model_supported_by_agent(cursor, AGENT_NAME, model):
             logging.warning(f"⛔ Modell '{model}' ist nicht kompatibel mit Agent '{AGENT_NAME}' – Anfrage wird ignoriert.")
             cursor.execute("""
