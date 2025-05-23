@@ -88,7 +88,7 @@ def log_agent_info(cursor):
     ram_total_mb = psutil.virtual_memory().total // 1024 // 1024  # ⇨ RAM gesamt in MB
 
     # Debug-Ausgabe zur Verifikation (optional)
-    print(f"[DEBUG] RAM gesamt erkannt: {ram_total_mb} MB")
+    #print(f"[DEBUG] RAM gesamt erkannt: {ram_total_mb} MB")
 
     # agent_log bei Modelländerung aktualisieren
     if status:
