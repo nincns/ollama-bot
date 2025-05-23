@@ -78,7 +78,7 @@ def log_agent_info(cursor):
                 active_model = parts[0]
                 break
 
-      # Performance-Daten sammeln
+    # Performance-Daten sammeln
     cpu = get_cpu_load()
     mem = get_memory_usage()
     gpu_util, gpu_used, gpu_total = get_gpu_info()
@@ -96,6 +96,32 @@ def log_agent_info(cursor):
                 INSERT INTO agent_log (conversation_id, agent_name, log_type, model_info, timestamp)
                 VALUES (%s, %s, %s, %s, %s)
             """, (None, AGENT_NAME, "status", model_info_str, datetime.now()))
+
+    # Aktualisiere agent_status
+    cursor.execute("""
+        REPLACE INTO agent_status (
+            agent_name, hostname, last_seen, performance_class,
+            recommended_models, model_list, model_active, runtime_status, is_available, notes,
+            cpu_load_percent, mem_used_percent, gpu_util_percent,
+            gpu_mem_used_mb, gpu_mem_total_mb
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    """, (
+        AGENT_NAME,
+        socket.gethostname(),
+        datetime.now(),
+        None,           # performance_class
+        None,           # recommended_models
+        model_info_str,
+        active_model,
+        runtime_status_str,
+        True,
+        None,
+        cpu,
+        mem,
+        gpu_util,
+        gpu_used,
+        gpu_total
+    ))
 
     # Aktualisiere agent_status
     cursor.execute("""
