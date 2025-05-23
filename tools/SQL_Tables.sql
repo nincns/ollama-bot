@@ -148,7 +148,7 @@ CREATE TABLE IF NOT EXISTS agent_status (
     mem_used_percent FLOAT,
     gpu_util_percent FLOAT,
     gpu_mem_used_mb INT,
-    gpu_mem_total_mb INT 
+    gpu_mem_total_mb INT
 );
 
 CREATE TABLE IF NOT EXISTS model_catalog (
