@@ -152,7 +152,7 @@ def handle_request(cfg, row):
 
         conv_id = row["id"]
         prompt = row["user_message"]
-        model = row["model_used"] or "glm4:latest"
+        model = row["model_used"] or "stablelm2:1.6b"
         user_id = row["user_id"]
 
         logging.info(f"⛰ Bearbeite Anfrage {conv_id} mit Modell '{model}'")
