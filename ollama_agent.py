@@ -152,11 +152,22 @@ def handle_request(cfg, row):
 
         conv_id = row["id"]
         prompt = row["user_message"]
-        model = row["model_used"] or "stablelm2:1.6b"
         user_id = row["user_id"]
+
+        # 🧠 Modellwahl: conversations → prompt → Fallback
+        model = row.get("model_used")
+        if not model:
+            pre_prompt_id = row.get("pre_prompt_id")
+            if pre_prompt_id:
+                cursor.execute("SELECT model FROM prompts WHERE id = %s", (pre_prompt_id,))
+                prompt_row = cursor.fetchone()
+                model = prompt_row["model"] if prompt_row and prompt_row.get("model") else None
+        if not model:
+            model = "stablelm2:1.6b"  # Fallback
 
         logging.info(f"⛰ Bearbeite Anfrage {conv_id} mit Modell '{model}'")
 
+        # Dialog-ID ermitteln oder neu erstellen
         dialog_id = get_or_create_dialog_id(cursor, user_id)
 
         cursor.execute("""
@@ -170,11 +181,13 @@ def handle_request(cfg, row):
         """, (AGENT_NAME, dialog_id, conv_id))
         conn.commit()
 
+        # Verlauf aufbauen und Modell anfragen
         start_time = datetime.now()
         history = build_chat_history(cursor, dialog_id, prompt)
         reply = query_ollama(history, model)
         duration = (datetime.now() - start_time).total_seconds()
 
+        # Ergebnisse speichern
         cursor.execute("""
             UPDATE conversations
             SET model_response = %s,
@@ -186,6 +199,7 @@ def handle_request(cfg, row):
         """, (reply, model, AGENT_NAME, conv_id))
         conn.commit()
 
+        # Logging
         log_text = f"Model={model} | Dauer={duration:.1f}s"
         cursor.execute("""
             INSERT INTO agent_log (conversation_id, agent_name, log_type, message, timestamp)
