@@ -51,8 +51,9 @@ def get_gpu_info():
         ], text=True)
         util_str, used_str, total_str = out.strip().split(", ")
         return float(util_str), int(used_str), int(total_str)
-    except Exception:
-        return None, None, None
+    except Exception as e:
+        logging.debug(f"GPU nicht verfügbar – fallback auf 0-Werte: {e}")
+        return 0.0, 0, 0
 
 def get_current_model():
     try:
@@ -69,7 +70,7 @@ def get_current_model():
 # === Vergleichsfunktion ===
 def has_significant_change(prev, curr):
     def diff(a, b):
-        return abs((a or 0) - (b or 0)) >= CHANGE_THRESHOLD
+        return a is None or b is None or abs((a or 0) - (b or 0)) >= CHANGE_THRESHOLD
 
     return (
         diff(prev.get("cpu"), curr["cpu"])
@@ -97,11 +98,11 @@ def update_agent_status():
     timestamp = datetime.now()
 
     curr_status = {
-        "cpu": cpu,
-        "ram": ram,
-        "gpu_util": gpu_util,
-        "gpu_mem_used": gpu_mem_used,
-        "model": model
+        "cpu": cpu or 0.0,
+        "ram": ram or 0.0,
+        "gpu_util": gpu_util or 0.0,
+        "gpu_mem_used": gpu_mem_used or 0,
+        "model": model or "none"
     }
 
     if not prev_status or has_significant_change(prev_status, curr_status):
