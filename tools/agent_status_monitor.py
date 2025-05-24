@@ -72,7 +72,6 @@ def monitor_agents():
         database=cfg["database"],
         port=int(cfg.get("port", 3306))
     )
-    cursor = conn.cursor(dictionary=True)
 
     console = Console()
     console.print("[bold green]▶ Live Agent-Status-Monitor wird gestartet... (STRG+C zum Beenden)[/bold green]")
@@ -80,14 +79,16 @@ def monitor_agents():
     try:
         with Live(console=console, screen=True, refresh_per_second=1) as live:
             while True:
+                # Cursor frisch pro Durchlauf
+                cursor = conn.cursor(dictionary=True)
                 table = create_agent_table(cursor)
+                cursor.close()
                 live.update(table, refresh=True)
                 time.sleep(INTERVAL)
 
     except KeyboardInterrupt:
         console.print("[bold red]Beendet durch Nutzer.[/bold red]")
     finally:
-        cursor.close()
         conn.close()
 
 if __name__ == "__main__":
