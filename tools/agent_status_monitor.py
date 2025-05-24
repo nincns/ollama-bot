@@ -7,7 +7,6 @@ from datetime import datetime
 from rich.console import Console
 from rich.table import Table
 from rich.live import Live
-from rich.panel import Panel
 
 ACCESS_FILE = "../private/.mariadb_access"
 INTERVAL = 3  # Sekunden
@@ -24,9 +23,10 @@ def read_access():
 def create_agent_table(cursor):
     cursor.execute("""
         SELECT agent_name, hostname, last_seen, performance_class,
-               recommended_models, model_list, model_active, runtime_status, is_available,
+               recommended_models, model_list, runtime_status, is_available,
                cpu_load_percent, mem_used_percent,
-               gpu_util_percent, gpu_mem_used_mb, gpu_mem_total_mb
+               gpu_util_percent, gpu_mem_used_mb, gpu_mem_total_mb,
+               model_active, ram_mem_total_mb
         FROM agent_status
         ORDER BY last_seen DESC
     """)
@@ -46,13 +46,14 @@ def create_agent_table(cursor):
 
     for (
         agent, host, seen, klass,
-        recommended, model_list, model_active, runtime,
-        available, cpu, mem, gpu, gpu_used, gpu_total
+        recommended, model_list, runtime, available,
+        cpu, mem, gpu, gpu_used, gpu_total,
+        model_active, ram_total
     ) in statuses:
 
         gpu_ram = "-"
         if gpu_used is not None and gpu_total:
-            gpu_ram = f"{gpu_used:.0f}/{gpu_total} MB"
+            gpu_ram = f"{gpu_used}/{gpu_total} MB"
 
         table.add_row(
             agent or "-",
