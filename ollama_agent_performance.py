@@ -144,6 +144,14 @@ def update_agent_status():
         conn.commit()
         logging.info(f"Status aktualisiert: CPU={cpu}%, RAM={ram}%, Modell={model}, GPU={gpu_util}%")
         prev_status = curr_status
+    else:
+        # Heartbeat-only Update: nur Zeitstempel und Verfügbarkeit setzen
+        cursor.execute(
+            "UPDATE agent_status SET last_seen = %s, is_available = TRUE WHERE agent_name = %s",
+            (timestamp, AGENT_NAME)
+        )
+        conn.commit()
+        logging.debug("Heartbeat gesendet (keine signifikante Änderung)")
 
     cursor.close()
     conn.close()
