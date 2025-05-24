@@ -123,7 +123,8 @@ def update_agent_status():
                 gpu_util_percent = VALUES(gpu_util_percent),
                 gpu_mem_used_mb = VALUES(gpu_mem_used_mb),
                 gpu_mem_total_mb = VALUES(gpu_mem_total_mb),
-                ram_mem_total_mb = VALUES(ram_mem_total_mb)
+                ram_mem_total_mb = VALUES(ram_mem_total_mb),
+                is_available = TRUE
         """
 
         values = (
