@@ -5,6 +5,7 @@ from pathlib import Path
 
 AGENT_FILES = {
     "ollama_agent": "ollama_agent.py",
+    "ollama_agent_performance": "ollama_agent_perfomance.py",
     "telegram_connector_db": "telegram_connector_db.py",
     "ollama_watchdog": "ollama_watchdog.py"
 }
