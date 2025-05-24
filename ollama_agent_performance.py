@@ -16,7 +16,6 @@ AGENT_NAME = socket.gethostname()
 CHECK_INTERVAL = 3  # Sekunden
 CHANGE_THRESHOLD = 5.0  # Prozent
 
-# === Logging ===
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 # === DB-Konfiguration laden ===
@@ -34,10 +33,10 @@ def load_db_config():
 
 # === Performance Informationen ===
 def get_cpu_load():
-    return psutil.cpu_percent(interval=None)
+    return psutil.cpu_percent(interval=None) or 0.0
 
 def get_memory_usage():
-    return psutil.virtual_memory().percent
+    return psutil.virtual_memory().percent or 0.0
 
 def get_ram_total_mb():
     return int(psutil.virtual_memory().total / 1024 / 1024)
@@ -62,7 +61,7 @@ def get_current_model():
             if line.strip().startswith("NAME"):
                 continue
             if line.strip():
-                return line.split()[0]  # erster Wert: Modellname
+                return line.split()[0]
         return "none"
     except Exception:
         return "error"
@@ -71,7 +70,6 @@ def get_current_model():
 def has_significant_change(prev, curr):
     def diff(a, b):
         return a is None or b is None or abs((a or 0) - (b or 0)) >= CHANGE_THRESHOLD
-
     return (
         diff(prev.get("cpu"), curr["cpu"])
         or diff(prev.get("ram"), curr["ram"])
@@ -98,14 +96,27 @@ def update_agent_status():
     timestamp = datetime.now()
 
     curr_status = {
-        "cpu": cpu or 0.0,
-        "ram": ram or 0.0,
-        "gpu_util": gpu_util or 0.0,
-        "gpu_mem_used": gpu_mem_used or 0,
-        "model": model or "none"
+        "cpu": cpu,
+        "ram": ram,
+        "gpu_util": gpu_util,
+        "gpu_mem_used": gpu_mem_used,
+        "model": model
     }
 
     if not prev_status or has_significant_change(prev_status, curr_status):
+        values = (
+            AGENT_NAME,
+            socket.gethostname(),
+            timestamp,
+            model or "none",
+            cpu or 0.0,
+            ram or 0.0,
+            gpu_util or 0.0,
+            gpu_mem_used or 0,
+            gpu_mem_total or 0,
+            ram_total or 0
+        )
+
         query = """
             INSERT INTO agent_status (
                 agent_name, hostname, last_seen, model_active,
@@ -127,25 +138,12 @@ def update_agent_status():
                 is_available = TRUE
         """
 
-        values = (
-            AGENT_NAME,
-            socket.gethostname(),
-            timestamp,
-            model,
-            cpu,
-            ram,
-            gpu_util,
-            gpu_mem_used,
-            gpu_mem_total,
-            ram_total
-        )
-
         cursor.execute(query, values)
         conn.commit()
-        logging.info(f"Status aktualisiert: CPU={cpu}%, RAM={ram}%, Modell={model}, GPU={gpu_util}%")
+        logging.info(f"Status aktualisiert: CPU={cpu:.1f}%, RAM={ram:.1f}%, Modell={model}, GPU={gpu_util:.1f}%")
         prev_status = curr_status
     else:
-        # Heartbeat-only Update: nur Zeitstempel und Verfügbarkeit setzen
+        # Heartbeat-only Update
         cursor.execute(
             "UPDATE agent_status SET last_seen = %s, is_available = TRUE WHERE agent_name = %s",
             (timestamp, AGENT_NAME)
