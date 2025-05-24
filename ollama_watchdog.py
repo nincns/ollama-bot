@@ -14,7 +14,6 @@ INTERVAL_SECONDS = 10  # Zeit zwischen den Zyklen
 logging.basicConfig(level=LOGLEVEL, format="%(asctime)s [%(levelname)s] %(message)s")
 
 # === DB-Zugriff ===
-
 def load_db_config():
     config = ConfigParser()
     config.read(ACCESS_FILE)
@@ -51,7 +50,19 @@ def get_model_catalog(cursor):
     cursor.execute("SELECT * FROM model_catalog WHERE is_active = 1")
     return cursor.fetchall()
 
-# === Logikfunktionen ===
+def update_agent_availability(cursor):
+    cursor.execute("""
+        UPDATE agent_status
+        SET is_available = FALSE
+        WHERE last_seen < NOW() - INTERVAL 10 SECOND
+    """)
+    cursor.execute("""
+        SELECT COUNT(*) AS cnt FROM agent_status
+        WHERE is_available = FALSE AND last_seen < NOW() - INTERVAL 10 SECOND
+    """)
+    stale = cursor.fetchone()
+    if stale and stale["cnt"] > 0:
+        logging.warning(f"⚠️ {stale['cnt']} Agent(s) als inaktiv markiert (last_seen > 10s).")
 
 def score_prompt(prompt, message):
     score = 0
@@ -78,14 +89,12 @@ def is_agent_suitable(agent, model):
         agent_model_active = agent.get("model_active", "").strip()
         model_name = model.get("model_name", "").strip()
 
-        # ⚡ Direkt akzeptieren, wenn Modell bereits aktiv geladen ist
         if agent_model_active == model_name:
             print(f"\n🔍 Prüfe Agent: {agent['agent_name']}")
             print(f"   ➤ Modell '{model_name}' ist bereits aktiv geladen.")
             print("   ✅ Agent ist geeignet (bereits aktiv).")
             return True
 
-        # RAM prüfen
         ram_mem_total_mb = agent.get("ram_mem_total_mb")
         if not isinstance(ram_mem_total_mb, (int, float)) or ram_mem_total_mb <= 0:
             print(f"   ⚠️ RAM-Wert ungültig oder fehlt: {ram_mem_total_mb}")
@@ -94,12 +103,10 @@ def is_agent_suitable(agent, model):
         used_ram_percent = agent.get("mem_used_percent", 100)
         available_ram_mb = (1 - used_ram_percent / 100) * ram_mem_total_mb
 
-        # GPU prüfen
         gpu_mem_total = agent.get("gpu_mem_total_mb", 0) or 0
         gpu_mem_used = agent.get("gpu_mem_used_mb", 0) or 0
         available_vram_mb = gpu_mem_total - gpu_mem_used
 
-        # Anforderungen aus Modell
         requires_gpu = model.get("requires_gpu", False)
         min_ram = model.get("min_ram_mb") or 0
         min_vram = model.get("min_vram_mb") or 0
@@ -126,16 +133,15 @@ def is_agent_suitable(agent, model):
         print(f"   ⚠️ Fehler bei der Agentprüfung: {e}")
         return False
 
-# === Haupt-Dispatcher ===
-
 def run_dispatcher_cycle():
     cfg = load_db_config()
     conn = mysql.connector.connect(**cfg)
     cursor = conn.cursor(dictionary=True)
 
+    update_agent_availability(cursor)
+
     open_requests = load_open_requests(cursor)
     if not open_requests:
-        # Keine offenen Anfragen → kein Output
         cursor.close()
         conn.close()
         return
@@ -189,8 +195,6 @@ def run_dispatcher_cycle():
     cursor.close()
     conn.close()
     print("⏳ Zyklus abgeschlossen. Warte auf nächste Runde ...\n")
-
-# === Main Loop ===
 
 def main():
     while True:
