@@ -50,19 +50,27 @@ def get_model_catalog(cursor):
     cursor.execute("SELECT * FROM model_catalog WHERE is_active = 1")
     return cursor.fetchall()
 
+# === Zustandscache ===
+prev_inactive_count = -1
+
 def update_agent_availability(cursor):
+    global prev_inactive_count
+
     cursor.execute("""
         UPDATE agent_status
         SET is_available = FALSE
         WHERE last_seen < NOW() - INTERVAL 10 SECOND
     """)
+
     cursor.execute("""
         SELECT COUNT(*) AS cnt FROM agent_status
         WHERE is_available = FALSE AND last_seen < NOW() - INTERVAL 10 SECOND
     """)
     stale = cursor.fetchone()
-    if stale and stale["cnt"] > 0:
+
+    if stale and stale["cnt"] != prev_inactive_count:
         logging.warning(f"⚠️ {stale['cnt']} Agent(s) als inaktiv markiert (last_seen > 10s).")
+        prev_inactive_count = stale["cnt"]
 
 def score_prompt(prompt, message):
     score = 0
