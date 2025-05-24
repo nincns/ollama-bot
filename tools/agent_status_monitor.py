@@ -44,28 +44,22 @@ def create_agent_table(cursor):
     table.add_column("GPU RAM", justify="right")
     table.add_column("Verfügbar")
 
-    for (
-        agent, host, seen, klass,
-        recommended, model_list, runtime, available,
-        cpu, mem, gpu, gpu_used, gpu_total,
-        model_active, ram_total
-    ) in statuses:
-
+    for row in statuses:
         gpu_ram = "-"
-        if gpu_used is not None and gpu_total:
-            gpu_ram = f"{gpu_used}/{gpu_total} MB"
+        if row["gpu_mem_used_mb"] is not None and row["gpu_mem_total_mb"]:
+            gpu_ram = f"{row['gpu_mem_used_mb']}/{row['gpu_mem_total_mb']} MB"
 
         table.add_row(
-            agent or "-",
-            host or "-",
-            seen.strftime("%Y-%m-%d %H:%M:%S") if seen else "-",
-            klass or "-",
-            model_active or "-",
-            f"{cpu:.1f}%" if cpu is not None else "-",
-            f"{mem:.1f}%" if mem is not None else "-",
-            f"{gpu:.1f}%" if gpu is not None else "-",
+            row.get("agent_name", "-"),
+            row.get("hostname", "-"),
+            row["last_seen"].strftime("%Y-%m-%d %H:%M:%S") if row["last_seen"] else "-",
+            row.get("performance_class", "-") or "-",
+            row.get("model_active", "-"),
+            f"{row['cpu_load_percent']:.1f}%" if row.get("cpu_load_percent") is not None else "-",
+            f"{row['mem_used_percent']:.1f}%" if row.get("mem_used_percent") is not None else "-",
+            f"{row['gpu_util_percent']:.1f}%" if row.get("gpu_util_percent") is not None else "-",
             gpu_ram,
-            "✅" if available else "❌"
+            "✅" if row.get("is_available") else "❌"
         )
     return table
 
@@ -78,16 +72,16 @@ def monitor_agents():
         database=cfg["database"],
         port=int(cfg.get("port", 3306))
     )
-    cursor = conn.cursor()
+    cursor = conn.cursor(dictionary=True)
 
     console = Console()
     console.print("[bold green]▶ Live Agent-Status-Monitor wird gestartet... (STRG+C zum Beenden)[/bold green]")
 
     try:
-        with Live(refresh_per_second=1, console=console, screen=True) as live:
+        with Live(console=console, screen=True, refresh_per_second=1) as live:
             while True:
                 table = create_agent_table(cursor)
-                live.update(table)
+                live.update(table, refresh=True)
                 time.sleep(INTERVAL)
 
     except KeyboardInterrupt:
