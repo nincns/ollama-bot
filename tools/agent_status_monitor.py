@@ -9,7 +9,7 @@ from rich.table import Table
 from rich.live import Live
 
 ACCESS_FILE = "../private/.mariadb_access"
-INTERVAL = 3  # Sekunden
+INTERVAL = 1  # Sekunden
 
 def read_access():
     cfg = {}
