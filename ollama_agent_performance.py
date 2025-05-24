@@ -38,6 +38,21 @@ def get_cpu_load():
 def get_memory_usage():
     return psutil.virtual_memory().percent
 
+def get_ram_total_mb():
+    return int(psutil.virtual_memory().total / 1024 / 1024)
+
+def get_gpu_info():
+    try:
+        out = subprocess.check_output([
+            "nvidia-smi",
+            "--query-gpu=utilization.gpu,memory.used,memory.total",
+            "--format=csv,noheader,nounits"
+        ], text=True)
+        util_str, used_str, total_str = out.strip().split(", ")
+        return float(util_str), int(used_str), int(total_str)
+    except Exception:
+        return None, None, None
+
 def get_current_model():
     try:
         result = subprocess.check_output(["ollama", "ps"], text=True)
@@ -59,25 +74,50 @@ def update_agent_status():
 
     cpu = get_cpu_load()
     ram = get_memory_usage()
+    ram_total = get_ram_total_mb()
+    gpu_util, gpu_mem_used, gpu_mem_total = get_gpu_info()
     model = get_current_model()
     timestamp = datetime.now()
 
     query = """
-        INSERT INTO agent_status (agent_name, cpu_usage, ram_usage, current_model, last_updated)
-        VALUES (%s, %s, %s, %s, %s)
+        INSERT INTO agent_status (
+            agent_name, hostname, last_seen, model_active,
+            cpu_load_percent, mem_used_percent,
+            gpu_util_percent, gpu_mem_used_mb, gpu_mem_total_mb,
+            ram_mem_total_mb
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
-            cpu_usage = VALUES(cpu_usage),
-            ram_usage = VALUES(ram_usage),
-            current_model = VALUES(current_model),
-            last_updated = VALUES(last_updated)
+            hostname = VALUES(hostname),
+            last_seen = VALUES(last_seen),
+            model_active = VALUES(model_active),
+            cpu_load_percent = VALUES(cpu_load_percent),
+            mem_used_percent = VALUES(mem_used_percent),
+            gpu_util_percent = VALUES(gpu_util_percent),
+            gpu_mem_used_mb = VALUES(gpu_mem_used_mb),
+            gpu_mem_total_mb = VALUES(gpu_mem_total_mb),
+            ram_mem_total_mb = VALUES(ram_mem_total_mb)
     """
-    values = (AGENT_NAME, cpu, ram, model, timestamp)
+
+    values = (
+        AGENT_NAME,
+        socket.gethostname(),
+        timestamp,
+        model,
+        cpu,
+        ram,
+        gpu_util,
+        gpu_mem_used,
+        gpu_mem_total,
+        ram_total
+    )
+
     cursor.execute(query, values)
     conn.commit()
     cursor.close()
     conn.close()
 
-    logging.info(f"Status aktualisiert: CPU={cpu}%, RAM={ram}%, Modell={model}")
+    logging.info(f"Status aktualisiert: CPU={cpu}%, RAM={ram}%, Modell={model}, GPU={gpu_util}%")
 
 # === Hauptloop ===
 if __name__ == "__main__":
