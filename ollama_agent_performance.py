@@ -14,6 +14,7 @@ from datetime import datetime
 ACCESS_FILE = "private/.mariadb_access"
 AGENT_NAME = socket.gethostname()
 CHECK_INTERVAL = 3  # Sekunden
+CHANGE_THRESHOLD = 5.0  # Prozent
 
 # === Logging ===
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -62,12 +63,28 @@ def get_current_model():
             if line.strip():
                 return line.split()[0]  # erster Wert: Modellname
         return "none"
-    except Exception as e:
-        logging.warning(f"Fehler bei 'ollama ps': {e}")
+    except Exception:
         return "error"
 
+# === Vergleichsfunktion ===
+def has_significant_change(prev, curr):
+    def diff(a, b):
+        return abs((a or 0) - (b or 0)) >= CHANGE_THRESHOLD
+
+    return (
+        diff(prev.get("cpu"), curr["cpu"])
+        or diff(prev.get("ram"), curr["ram"])
+        or diff(prev.get("gpu_util"), curr["gpu_util"])
+        or diff(prev.get("gpu_mem_used"), curr["gpu_mem_used"])
+        or prev.get("model") != curr["model"]
+    )
+
 # === DB-Update ===
+prev_status = {}
+
 def update_agent_status():
+    global prev_status
+
     config = load_db_config()
     conn = mysql.connector.connect(**config)
     cursor = conn.cursor()
@@ -79,45 +96,55 @@ def update_agent_status():
     model = get_current_model()
     timestamp = datetime.now()
 
-    query = """
-        INSERT INTO agent_status (
-            agent_name, hostname, last_seen, model_active,
-            cpu_load_percent, mem_used_percent,
-            gpu_util_percent, gpu_mem_used_mb, gpu_mem_total_mb,
-            ram_mem_total_mb
+    curr_status = {
+        "cpu": cpu,
+        "ram": ram,
+        "gpu_util": gpu_util,
+        "gpu_mem_used": gpu_mem_used,
+        "model": model
+    }
+
+    if not prev_status or has_significant_change(prev_status, curr_status):
+        query = """
+            INSERT INTO agent_status (
+                agent_name, hostname, last_seen, model_active,
+                cpu_load_percent, mem_used_percent,
+                gpu_util_percent, gpu_mem_used_mb, gpu_mem_total_mb,
+                ram_mem_total_mb
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE
+                hostname = VALUES(hostname),
+                last_seen = VALUES(last_seen),
+                model_active = VALUES(model_active),
+                cpu_load_percent = VALUES(cpu_load_percent),
+                mem_used_percent = VALUES(mem_used_percent),
+                gpu_util_percent = VALUES(gpu_util_percent),
+                gpu_mem_used_mb = VALUES(gpu_mem_used_mb),
+                gpu_mem_total_mb = VALUES(gpu_mem_total_mb),
+                ram_mem_total_mb = VALUES(ram_mem_total_mb)
+        """
+
+        values = (
+            AGENT_NAME,
+            socket.gethostname(),
+            timestamp,
+            model,
+            cpu,
+            ram,
+            gpu_util,
+            gpu_mem_used,
+            gpu_mem_total,
+            ram_total
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ON DUPLICATE KEY UPDATE
-            hostname = VALUES(hostname),
-            last_seen = VALUES(last_seen),
-            model_active = VALUES(model_active),
-            cpu_load_percent = VALUES(cpu_load_percent),
-            mem_used_percent = VALUES(mem_used_percent),
-            gpu_util_percent = VALUES(gpu_util_percent),
-            gpu_mem_used_mb = VALUES(gpu_mem_used_mb),
-            gpu_mem_total_mb = VALUES(gpu_mem_total_mb),
-            ram_mem_total_mb = VALUES(ram_mem_total_mb)
-    """
 
-    values = (
-        AGENT_NAME,
-        socket.gethostname(),
-        timestamp,
-        model,
-        cpu,
-        ram,
-        gpu_util,
-        gpu_mem_used,
-        gpu_mem_total,
-        ram_total
-    )
+        cursor.execute(query, values)
+        conn.commit()
+        logging.info(f"Status aktualisiert: CPU={cpu}%, RAM={ram}%, Modell={model}, GPU={gpu_util}%")
+        prev_status = curr_status
 
-    cursor.execute(query, values)
-    conn.commit()
     cursor.close()
     conn.close()
-
-    logging.info(f"Status aktualisiert: CPU={cpu}%, RAM={ram}%, Modell={model}, GPU={gpu_util}%")
 
 # === Hauptloop ===
 if __name__ == "__main__":
